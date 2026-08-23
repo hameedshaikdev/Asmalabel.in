@@ -103,11 +103,11 @@ export default function Header() {
             {/* ── Logo ── */}
             <Link to="/" style={{ display:'flex', alignItems:'center', gap:'8px',
               flexShrink:0, textDecoration:'none', minWidth:0 }}>
-              <div style={{ width:'42px', height:'42px', borderRadius:'14px',
-                border:'1.5px solid rgba(255,255,255,0.8)', overflow:'hidden', flexShrink:0,
-                display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 12px rgba(0,0,0,0.06)', background:'white' }}>
+              <div style={{ width:'44px', height:'44px', borderRadius:'50%',
+                border:'1.5px solid #E2E8F0', overflow:'hidden', flexShrink:0,
+                display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 2px 8px rgba(15,23,42,0.06)', background:'#F5EBE0' }}>
                 <img src="/logo.png" alt="Asmalabel"
-                  style={{ width:'100%', height:'100%', objectFit:'contain', padding:'2px' }}
+                  style={{ width:'100%', height:'100%', objectFit:'contain', borderRadius:'50%', background:'#F5EBE0' }}
                   onError={e => { e.target.style.display='none'; }} />
               </div>
               <span style={{ fontSize:'19px', fontWeight:900, color:'#0F172A',
@@ -321,7 +321,7 @@ export default function Header() {
                 <div style={{ display:'flex', flexDirection:'column', gap:'10px', marginTop:'8px' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
                     <img src="/logo.png" alt="Asmalabel"
-                      style={{ width:'40px', height:'40px', borderRadius:'12px', background:'white', objectFit:'contain', padding:'2px' }} />
+                      style={{ width:'44px', height:'44px', borderRadius:'50%', background:'#F5EBE0', objectFit:'contain', border:'1.5px solid rgba(255,255,255,0.3)', boxShadow:'0 2px 8px rgba(0,0,0,0.15)' }} />
                     <div>
                       <p style={{ fontSize:'18px', fontWeight:900, color:'#FFFFFF', margin:0 }}>Asmalabel</p>
                       <p style={{ fontSize:'11px', color:'rgba(255,255,255,0.7)', margin:'2px 0 0 0' }}>Tailoring Tools & Fashion</p>

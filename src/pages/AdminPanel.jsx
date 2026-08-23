@@ -1857,11 +1857,11 @@ buildPages(4);
 
         {/* Left Brand with Real Logo Image */}
         <div style={{ display:'flex', alignItems:'center', gap:'10px', flexShrink:0 }}>
-          <div style={{ width:'34px', height:'34px', borderRadius:'10px', overflow:'hidden',
-            border:'1px solid #E2E8F0', background:'#FFFFFF',
+          <div style={{ width:'36px', height:'36px', borderRadius:'50%', overflow:'hidden',
+            border:'1px solid #E2E8F0', background:'#F5EBE0',
             display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
             boxShadow:'0 2px 6px rgba(15,23,42,0.06)' }}>
-            <img src="/logo.png" alt="Asmalabel Hub" style={{ width:'100%', height:'100%', objectFit:'contain', padding:'2px' }} onError={e=>{e.target.style.display='none'; if(e.target.nextSibling) e.target.nextSibling.style.display='flex';}} />
+            <img src="/logo.png" alt="Asmalabel Hub" style={{ width:'100%', height:'100%', objectFit:'contain', borderRadius:'50%', background:'#F5EBE0' }} onError={e=>{e.target.style.display='none'; if(e.target.nextSibling) e.target.nextSibling.style.display='flex';}} />
             <div style={{ display:'none', width:'100%', height:'100%', alignItems:'center', justifyContent:'center', background:'#1E293B' }}>
               <BarChart2 size={16} color="#FFFFFF" />
             </div>

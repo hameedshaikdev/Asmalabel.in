@@ -34,9 +34,9 @@ export default function Footer() {
 
         {/* Logo + name */}
         <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
-          <div style={{ width:'48px', height:'48px', borderRadius:'14px', border:'1px solid rgba(255,255,255,0.2)', background:'white', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:'3px' }}>
+          <div style={{ width:'48px', height:'48px', borderRadius:'50%', border:'1.5px solid rgba(255,255,255,0.3)', background:'#F5EBE0', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:'3px', boxShadow:'0 4px 14px rgba(0,0,0,0.2)' }}>
             <img src="/logo.png" alt="Asmalabel"
-              style={{ width:'100%', height:'100%', objectFit:'contain' }}
+              style={{ width:'100%', height:'100%', objectFit:'contain', borderRadius:'50%', background:'#F5EBE0' }}
               onError={e => { e.target.style.display = 'none'; }} />
           </div>
           <div style={{ textAlign:'left' }}>

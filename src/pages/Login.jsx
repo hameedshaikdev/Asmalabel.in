@@ -245,8 +245,8 @@ export default function Login() {
           {/* Brand Header inside Login Panel */}
           <div style={{ textAlign: 'center', marginBottom: '22px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <Link to="/" style={{ textDecoration: 'none', display: 'inline-flex', flexDirection: 'column', alignItems: 'center', marginBottom: '4px' }}>
-              <div style={{ width: '60px', height: '60px', borderRadius: '16px', border: '1px solid #E2E8F0', background: '#FFFFFF', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(15,23,42,0.06)', marginBottom: '8px' }}>
-                <img src="/logo.png" alt="Asmalabel" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              <div style={{ width: '64px', height: '64px', borderRadius: '50%', border: '1.5px solid #E2E8F0', background: '#F5EBE0', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(15,23,42,0.06)', marginBottom: '10px' }}>
+                <img src="/logo.png" alt="Asmalabel" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%', background: '#F5EBE0' }} />
               </div>
               <h1 style={{
                 fontFamily: '"Playfair Display", "Cinzel", "Cormorant Garamond", Georgia, serif',
