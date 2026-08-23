@@ -13,8 +13,9 @@ export default function AuthCallback() {
     console.log('Hash:', window.location.hash);
 
     // Error comes back in HASH from Supabase, code comes in search params
-    const searchParams = new URLSearchParams(window.location.search);
-    const hashParams   = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const searchParams   = new URLSearchParams(window.location.search);
+    const hashParams     = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const targetRedirect = searchParams.get('redirect') || '/';
 
     const code      = searchParams.get('code');
     const errorCode = searchParams.get('error')        || hashParams.get('error');
@@ -31,7 +32,7 @@ export default function AuthCallback() {
         msg = 'Google sign-in configuration error. Please contact support.';
       }
       setError(msg);
-      setTimeout(() => navigate('/login', { replace: true }), 3000);
+      setTimeout(() => navigate(`/login?redirect=${encodeURIComponent(targetRedirect)}`, { replace: true }), 3000);
       return;
     }
 
@@ -44,14 +45,14 @@ export default function AuthCallback() {
 
         if (event === 'SIGNED_IN' && session) {
           redirected = true;
-          navigate('/', { replace: true });
+          navigate(targetRedirect, { replace: true });
           return;
         }
 
         if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
           redirected = true;
           setError('Login was cancelled or failed. Please try again.');
-          setTimeout(() => navigate('/login', { replace: true }), 2500);
+          setTimeout(() => navigate(`/login?redirect=${encodeURIComponent(targetRedirect)}`, { replace: true }), 2500);
         }
       }
     );
@@ -64,12 +65,12 @@ export default function AuthCallback() {
       if (err) {
         redirected = true;
         setError(err.message);
-        setTimeout(() => navigate('/login', { replace: true }), 2500);
+        setTimeout(() => navigate(`/login?redirect=${encodeURIComponent(targetRedirect)}`, { replace: true }), 2500);
         return;
       }
       if (session) {
         redirected = true;
-        navigate('/', { replace: true });
+        navigate(targetRedirect, { replace: true });
       }
     });
 

@@ -107,8 +107,7 @@ export default function Header() {
                 border:'1.5px solid rgba(255,255,255,0.8)', overflow:'hidden', flexShrink:0,
                 display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 12px rgba(0,0,0,0.06)', background:'white' }}>
                 <img src="/logo.png" alt="Asmalabel"
-                  style={{ width:'120%', height:'120%', objectFit:'cover',
-                    objectPosition:'center' }}
+                  style={{ width:'100%', height:'100%', objectFit:'contain', padding:'2px' }}
                   onError={e => { e.target.style.display='none'; }} />
               </div>
               <span style={{ fontSize:'19px', fontWeight:900, color:'#0F172A',
@@ -322,7 +321,7 @@ export default function Header() {
                 <div style={{ display:'flex', flexDirection:'column', gap:'10px', marginTop:'8px' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
                     <img src="/logo.png" alt="Asmalabel"
-                      style={{ width:'40px', height:'40px', borderRadius:'12px', background:'white', objectFit:'cover' }} />
+                      style={{ width:'40px', height:'40px', borderRadius:'12px', background:'white', objectFit:'contain', padding:'2px' }} />
                     <div>
                       <p style={{ fontSize:'18px', fontWeight:900, color:'#FFFFFF', margin:0 }}>Asmalabel</p>
                       <p style={{ fontSize:'11px', color:'rgba(255,255,255,0.7)', margin:'2px 0 0 0' }}>Tailoring Tools & Fashion</p>

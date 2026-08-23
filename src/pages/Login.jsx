@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { supabase } from '../config/supabase';
@@ -8,8 +8,15 @@ import SEO from '../components/common/SEO';
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { setUser } = useApp();
+  const { user, setUser, loading: appLoading } = useApp();
   const redirect = searchParams.get('redirect') || '/';
+
+  // If user is already logged in, redirect immediately without asking to log in again
+  useEffect(() => {
+    if (!appLoading && user) {
+      navigate(redirect, { replace: true });
+    }
+  }, [user, appLoading, redirect, navigate]);
 
   const [form,         setForm]         = useState({ email:'', password:'' });
   const [showPwd,      setShowPwd]      = useState(false);
@@ -37,7 +44,7 @@ export default function Login() {
       });
       if (error) throw error;
       setUser(data.user);
-      navigate(redirect);
+      navigate(redirect, { replace: true });
     } catch (err) {
       setError(err.message === 'Invalid login credentials'
         ? 'Invalid email or password. Please check your credentials and try again.'
@@ -49,10 +56,11 @@ export default function Login() {
   const onGoogle = async () => {
     setGoogleLoad(true); setError('');
     try {
+      const callbackUrl = `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: callbackUrl,
           queryParams: { access_type: 'offline', prompt: 'consent' },
         },
       });
@@ -235,11 +243,14 @@ export default function Login() {
           border: '1.5px solid #E2E8F0'
         }}>
           {/* Brand Header inside Login Panel */}
-          <div style={{ textAlign: 'center', marginBottom: '22px' }}>
-            <Link to="/" style={{ textDecoration: 'none', display: 'block', marginBottom: '4px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '22px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Link to="/" style={{ textDecoration: 'none', display: 'inline-flex', flexDirection: 'column', alignItems: 'center', marginBottom: '4px' }}>
+              <div style={{ width: '60px', height: '60px', borderRadius: '16px', border: '1px solid #E2E8F0', background: '#FFFFFF', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(15,23,42,0.06)', marginBottom: '8px' }}>
+                <img src="/logo.png" alt="Asmalabel" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              </div>
               <h1 style={{
                 fontFamily: '"Playfair Display", "Cinzel", "Cormorant Garamond", Georgia, serif',
-                fontSize: '34px',
+                fontSize: '32px',
                 fontWeight: 900,
                 color: '#0F172A',
                 margin: 0,

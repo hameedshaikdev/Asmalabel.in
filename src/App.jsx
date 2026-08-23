@@ -38,9 +38,12 @@ function AppInner() {
   // Show loading spinner
   if (loading) {
     return (
-      <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', gap:'24px' }}>
-        <h1 style={{ fontSize:'48px', fontWeight:900, color:'white', letterSpacing:'-1px' }}>Asmalabel</h1>
-        <div style={{ width:'48px', height:'48px', border:'4px solid rgba(255,255,255,0.1)', borderTop:'4px solid #60A5FA', borderRadius:'50%', animation:'spin .8s linear infinite' }} />
+      <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', gap:'20px' }}>
+        <div style={{ width:'72px', height:'72px', borderRadius:'20px', border:'1px solid rgba(255,255,255,0.2)', background:'white', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', padding:'6px', boxShadow:'0 8px 30px rgba(0,0,0,0.3)' }}>
+          <img src="/logo.png" alt="Asmalabel" style={{ width:'100%', height:'100%', objectFit:'contain' }} />
+        </div>
+        <h1 style={{ fontSize:'36px', fontWeight:900, color:'white', letterSpacing:'-0.5px', fontFamily:"'Playfair Display', Georgia, serif", margin:0 }}>Asmalabel</h1>
+        <div style={{ width:'42px', height:'42px', border:'3.5px solid rgba(255,255,255,0.15)', borderTop:'3.5px solid #B88346', borderRadius:'50%', animation:'spin .8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform:rotate(360deg); } }`}</style>
       </div>
     );

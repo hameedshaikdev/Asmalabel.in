@@ -34,24 +34,15 @@ export default function Footer() {
 
         {/* Logo + name */}
         <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
-          <img src="/logo.png" alt="Asmalabel"
-            style={{ width:'48px', height:'48px', borderRadius:'50%',
-              objectFit:'cover', objectPosition:'center',
-              border:'2.5px solid #1A1A2E', flexShrink:0 }}
-            onError={e => {
-              e.target.style.display = 'none';
-              e.target.nextSibling.style.display = 'flex';
-            }} />
-          <div style={{ display:'none', width:'48px', height:'48px', borderRadius:'50%',
-            background:'linear-gradient(135deg,#1E2A45,#0F3460)',
-            alignItems:'center', justifyContent:'center',
-            fontSize:'18px', fontWeight:900, color:'white', flexShrink:0 }}>
-            A
+          <div style={{ width:'48px', height:'48px', borderRadius:'14px', border:'1px solid rgba(255,255,255,0.2)', background:'white', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:'3px' }}>
+            <img src="/logo.png" alt="Asmalabel"
+              style={{ width:'100%', height:'100%', objectFit:'contain' }}
+              onError={e => { e.target.style.display = 'none'; }} />
           </div>
           <div style={{ textAlign:'left' }}>
             <p style={{ fontSize:'20px', fontWeight:900, color:'white',
-              letterSpacing:'-.3px', lineHeight:1 }}>Asmalabel</p>
-            <p style={{ fontSize:'11px', color:'rgba(255,255,255,.85)', marginTop:'3px' }}>
+              letterSpacing:'-.3px', lineHeight:1, margin:0 }}>Asmalabel</p>
+            <p style={{ fontSize:'11px', color:'rgba(255,255,255,.85)', marginTop:'3px', margin:0 }}>
               Tailoring &amp; Fashion
             </p>
           </div>

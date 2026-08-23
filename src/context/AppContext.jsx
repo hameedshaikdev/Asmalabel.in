@@ -46,28 +46,34 @@ export function AppProvider({ children }) {
 
   // Auth — handles page refresh, Google OAuth redirect, normal login
   useEffect(() => {
+    let isMounted = true;
+
+    // 1. Get initial session immediately from storage
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (isMounted) {
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    }).catch(err => {
+      console.error('Session fetch error:', err);
+      if (isMounted) setLoading(false);
+    });
+
+    // 2. Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (event === 'INITIAL_SESSION') {
-          setUser(session?.user ?? null);
-          setLoading(false);
-          return;
-        }
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-          setUser(session?.user ?? null);
-          setLoading(false);
-          return;
-        }
-        if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setLoading(false);
-        }
+        if (!isMounted) return;
+        setUser(session?.user ?? null);
+        setLoading(false);
       }
     );
 
-    const fallback = setTimeout(() => setLoading(false), 3000);
+    const fallback = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 2000);
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
       clearTimeout(fallback);
     };
