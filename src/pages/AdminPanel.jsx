@@ -122,9 +122,8 @@ function ProductModal({ product, onClose, onSave }) {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newVT, setNewVT] = useState(''); const [newVU, setNewVU] = useState('');
-  const [newImgUrl, setNewImgUrl] = useState('');
-  const [newColorHex, setNewColorHex] = useState('#0F172A');
-  const [varUrlInputs, setVarUrlInputs] = useState({});
+  const [colorInputText, setColorInputText] = useState('');
+  const [colorPickerVal, setColorPickerVal] = useState('#0F172A');
 
   useEffect(() => {
     (async () => {
@@ -152,16 +151,20 @@ function ProductModal({ product, onClose, onSave }) {
     const files = Array.from(e.target.files); if (!files.length) return; setUploading(true);
     try { const urls=await Promise.all(files.map(upload)); setForm(p=>({...p,images:[...(p.images||[]),...urls]})); } catch(e){alert('Upload failed')} finally{setUploading(false);}
   }
-  function handleAddImageUrl() {
-    if (!newImgUrl.trim()) return;
-    setForm(p => ({...p, images: [...(p.images || []), newImgUrl.trim()]}));
-    setNewImgUrl('');
-  }
   function handleRemoveImg(index) {
     setForm(p => ({...p, images: p.images.filter((_, i) => i !== index)}));
   }
   function handleMakeCover(url) {
     setForm(p => ({...p, image_url: url}));
+  }
+
+  function handleAddColorOption() {
+    const val = (colorInputText || colorPickerVal || '').trim();
+    if (!val) return;
+    if (!(form.colors || []).some(c => c.toLowerCase() === val.toLowerCase())) {
+      setForm(p => ({ ...p, colors: [...(p.colors || []), val] }));
+    }
+    setColorInputText('');
   }
 
   /* ── Variant Action Handlers ── */
@@ -231,31 +234,21 @@ function ProductModal({ product, onClose, onSave }) {
   }
 
   async function handleVariantUploadImage(varIdx, e) {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
     setUploading(true);
     try {
-      const url = await upload(file);
+      const urls = await Promise.all(files.map(upload));
       setForm(p => ({
         ...p,
-        variants: (p.variants || []).map((v, i) => i === varIdx ? { ...v, images: [...(v.images || []), url] } : v)
+        variants: (p.variants || []).map((v, i) => i === varIdx ? { ...v, images: [...(v.images || []), ...urls] } : v)
       }));
-      toast('Variant image uploaded!', 'success');
+      toast(files.length === 1 ? 'Variant image uploaded!' : `${files.length} variant images uploaded!`, 'success');
     } catch (err) {
       toast('Upload failed: ' + err.message, 'error');
     } finally {
       setUploading(false);
     }
-  }
-
-  function handleVariantAddImageUrl(varIdx) {
-    const url = varUrlInputs[varIdx];
-    if (!url || !url.trim()) return;
-    setForm(p => ({
-      ...p,
-      variants: (p.variants || []).map((v, i) => i === varIdx ? { ...v, images: [...(v.images || []), url.trim()] } : v)
-    }));
-    setVarUrlInputs(p => ({ ...p, [varIdx]: '' }));
   }
 
   function handleVariantRemoveImage(varIdx, imgIdx) {
@@ -381,15 +374,6 @@ function ProductModal({ product, onClose, onSave }) {
                 🖼️ + Add Multiple Images
                 <input type="file" accept="image/*" multiple style={{ display:'none' }} onChange={handleMoreImgs} disabled={uploading} />
               </label>
-            </div>
-
-            {/* Add Image via URL input */}
-            <div style={{ display:'flex', gap:'6px', marginBottom:'10px' }}>
-              <input value={newImgUrl} onChange={e=>setNewImgUrl(e.target.value)} placeholder="Or paste Image URL (https://...)" style={{ ...S, flex:1 }} />
-              <button type="button" onClick={handleAddImageUrl}
-                style={{ padding:'8px 14px', borderRadius:'10px', background:'#1A1A2E', color:'white', fontWeight:800, fontSize:'12px', border:'none', cursor:'pointer', whiteSpace:'nowrap' }}>
-                + Add URL
-              </button>
             </div>
 
             {/* Image Thumbnails Strip */}
@@ -535,7 +519,7 @@ function ProductModal({ product, onClose, onSave }) {
           </div>
 
           {/* Color Swatches Option */}
-          <div style={{ background:'#F8FAFC', padding:'14px', borderRadius:'14px', border:'1px solid #E2E8F0', display:'flex', flexDirection:'column', gap:'10px' }}>
+          <div style={{ background:'#F8FAFC', padding:'14px', borderRadius:'14px', border:'1px solid #E2E8F0', display:'flex', flexDirection:'column', gap:'12px' }}>
             <div>
               <label style={{ fontSize:'11px', fontWeight:800, color:'#1A1A2E', textTransform:'uppercase', display:'block', marginBottom:'2px', letterSpacing:'.5px' }}>
                 🎨 Color Swatches / Options (Optional)
@@ -545,58 +529,176 @@ function ProductModal({ product, onClose, onSave }) {
               </p>
             </div>
 
-            {form.colors?.length > 0 && (
-              <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
+            {/* Current Added Colors as Clean Chips */}
+            {form.colors?.length > 0 ? (
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {form.colors.map((c, i) => {
                   const cName = getColorName(c);
                   const swatch = getColorSwatch(c);
                   return (
-                    <span key={i} style={{ display:'inline-flex', alignItems:'center', gap:'6px', padding:'4px 10px', borderRadius:'8px', background:'white', border:'1px solid #CBD5E1', fontSize:'11.5px', fontWeight:700, color:'#0F172A', boxShadow:'0 1px 3px rgba(0,0,0,0.04)' }}>
-                      <span style={{ width:'13px', height:'13px', borderRadius:'50%', background: swatch, border:'1px solid rgba(0,0,0,0.2)', flexShrink:0 }} />
+                    <span
+                      key={i}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '4px 10px',
+                        borderRadius: '999px',
+                        background: '#FFFFFF',
+                        border: '1px solid #CBD5E1',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        color: '#0F172A',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '50%',
+                          background: swatch,
+                          border: '1px solid rgba(0,0,0,0.15)',
+                          flexShrink: 0
+                        }}
+                      />
                       <span>{cName}</span>
-                      <span style={{ color:'#94A3B8', fontSize:'10px', fontWeight:500 }}>({c})</span>
-                      <button type="button" onClick={() => setForm(p => ({ ...p, colors: p.colors.filter((_, idx) => idx !== i) }))} style={{ background:'none', border:'none', cursor:'pointer', color:'#EF4444', padding:'0 0 0 2px', display:'flex', alignItems:'center' }}>
-                        <X size={12} />
+                      {c.startsWith('#') && (
+                        <span style={{ color: '#94A3B8', fontSize: '10px', fontWeight: 500 }}>({c})</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setForm(p => ({ ...p, colors: p.colors.filter((_, idx) => idx !== i) }))}
+                        title={`Remove ${cName}`}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: '#94A3B8',
+                          padding: '0 0 0 2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          transition: 'color 0.15s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.color = '#EF4444'}
+                        onMouseLeave={e => e.currentTarget.style.color = '#94A3B8'}
+                      >
+                        <X size={13} />
                       </button>
                     </span>
                   );
                 })}
               </div>
+            ) : (
+              <div style={{ fontSize: '11px', color: '#94A3B8', fontStyle: 'italic', padding: '2px 0' }}>
+                No colors added yet. Tap presets below or add a custom color.
+              </div>
             )}
 
-            {/* Quick Preset Color Buttons */}
+            {/* Quick 1-Tap Preset Colors */}
             <div>
-              <span style={{ fontSize:'10.5px', fontWeight:700, color:'#64748B', display:'block', marginBottom:'5px' }}>
+              <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#64748B', display: 'block', marginBottom: '6px' }}>
                 Quick Add Presets:
               </span>
-              <div style={{ display:'flex', gap:'5px', flexWrap:'wrap' }}>
-                {PRESET_COLORS.slice(0, 10).map(p => (
-                  <button
-                    key={p.name}
-                    type="button"
-                    onClick={() => {
-                      if (!form.colors?.includes(p.value)) {
-                        setForm(prev => ({ ...prev, colors: [...(prev.colors || []), p.value] }));
-                      }
-                    }}
-                    style={{
-                      display:'inline-flex', alignItems:'center', gap:'4px', padding:'3px 8px', borderRadius:'6px',
-                      background:'#FFFFFF', border:'1px solid #E2E8F0', fontSize:'10.5px', fontWeight:700, color:'#334155', cursor:'pointer'
-                    }}
-                  >
-                    <span style={{ width:'9px', height:'9px', borderRadius:'50%', background:p.value, border:'1px solid rgba(0,0,0,0.15)' }} />
-                    {p.name}
-                  </button>
-                ))}
+              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                {PRESET_COLORS.slice(0, 12).map(p => {
+                  const isAdded = (form.colors || []).some(c => c.toLowerCase() === p.name.toLowerCase() || c.toLowerCase() === p.value.toLowerCase());
+                  return (
+                    <button
+                      key={p.name}
+                      type="button"
+                      onClick={() => {
+                        if (isAdded) {
+                          setForm(prev => ({ ...prev, colors: (prev.colors || []).filter(c => c.toLowerCase() !== p.name.toLowerCase() && c.toLowerCase() !== p.value.toLowerCase()) }));
+                        } else {
+                          setForm(prev => ({ ...prev, colors: [...(prev.colors || []), p.name] }));
+                        }
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '4px 9px',
+                        borderRadius: '8px',
+                        background: isAdded ? '#0F172A' : '#FFFFFF',
+                        color: isAdded ? '#FFFFFF' : '#334155',
+                        border: isAdded ? '1px solid #0F172A' : '1px solid #E2E8F0',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: '9px',
+                          height: '9px',
+                          borderRadius: '50%',
+                          background: p.value,
+                          border: isAdded ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(0,0,0,0.15)',
+                          flexShrink: 0
+                        }}
+                      />
+                      {p.name} {isAdded ? '✓' : '+'}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <div style={{ display:'flex', gap:'6px' }}>
-              <input type="color" value={newColorHex} onChange={e => setNewColorHex(e.target.value)} style={{ width:'38px', height:'38px', border:'1px solid #CBD5E1', borderRadius:'8px', cursor:'pointer', padding:'2px', background:'white' }} />
-              <input placeholder="Color hex (e.g. #0F172A)" value={newColorHex} onChange={e => setNewColorHex(e.target.value)} style={{ ...S, flex:1 }} />
-              <button type="button" onClick={() => { if(!newColorHex) return; if (!form.colors?.includes(newColorHex)) { setForm(p => ({ ...p, colors: [...(p.colors||[]), newColorHex] })); } }}
-                style={{ padding:'8px 14px', borderRadius:'10px', background:'#1A1A2E', color:'white', fontWeight:800, fontSize:'12px', border:'none', cursor:'pointer', whiteSpace:'nowrap' }}>
-                + Add Color
+            {/* Custom Color Input Row — Responsive & Clean */}
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
+              <div style={{ position: 'relative', width: '38px', height: '38px', flexShrink: 0 }}>
+                <input
+                  type="color"
+                  value={colorPickerVal}
+                  onChange={e => {
+                    setColorPickerVal(e.target.value);
+                    if (!colorInputText) setColorInputText(e.target.value);
+                  }}
+                  title="Choose Color"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    padding: '2px',
+                    background: '#FFFFFF',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              <input
+                placeholder="Color name or hex (e.g. Navy Blue, #D92F32)"
+                value={colorInputText}
+                onChange={e => setColorInputText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddColorOption(); } }}
+                style={{
+                  ...S,
+                  flex: 1,
+                  minWidth: 0,
+                  background: '#FFFFFF',
+                  fontSize: '12px'
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleAddColorOption}
+                style={{
+                  padding: '9px 14px',
+                  borderRadius: '9px',
+                  background: '#0F172A',
+                  color: '#FFFFFF',
+                  fontWeight: 800,
+                  fontSize: '12px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
+                }}
+              >
+                + Add
               </button>
             </div>
           </div>
@@ -1009,28 +1111,12 @@ function ProductModal({ product, onClose, onSave }) {
                         </div>
                       )}
 
-                      {/* Image Upload & URL Inputs */}
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        <label style={{ padding: '6px 12px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #CBD5E1', fontSize: '11px', fontWeight: 700, color: '#0F172A', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Upload size={12} /> {uploading ? 'Uploading...' : 'Upload Image'}
-                          <input type="file" accept="image/*" onChange={e => handleVariantUploadImage(vIdx, e)} style={{ display: 'none' }} />
+                      {/* Image Upload Button */}
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <label style={{ padding: '7px 14px', borderRadius: '8px', background: '#FFFFFF', border: '1.5px dashed #CBD5E1', fontSize: '11.5px', fontWeight: 700, color: '#0F172A', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <Upload size={13} /> {uploading ? 'Uploading...' : '📷 + Upload Variant Photos'}
+                          <input type="file" accept="image/*" multiple onChange={e => handleVariantUploadImage(vIdx, e)} style={{ display: 'none' }} disabled={uploading} />
                         </label>
-
-                        <div style={{ display: 'flex', gap: '4px', flex: 1, minWidth: '160px' }}>
-                          <input
-                            placeholder="or paste image URL..."
-                            value={varUrlInputs[vIdx] || ''}
-                            onChange={e => setVarUrlInputs(p => ({ ...p, [vIdx]: e.target.value }))}
-                            style={{ ...S, padding: '5px 8px', fontSize: '11.5px', background: '#FFFFFF' }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleVariantAddImageUrl(vIdx)}
-                            style={{ padding: '5px 10px', borderRadius: '8px', background: '#0F172A', color: 'white', fontWeight: 800, fontSize: '11px', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                          >
-                            + Add URL
-                          </button>
-                        </div>
                       </div>
                     </div>
 
