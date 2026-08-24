@@ -161,7 +161,7 @@ function ProductModal({ product, onClose, onSave }) {
   function handleAddColorOption() {
     const val = (colorInputText || colorPickerVal || '').trim();
     if (!val) return;
-    if (!(form.colors || []).some(c => c.toLowerCase() === val.toLowerCase())) {
+    if (!(form.colors || []).some(c => typeof c === 'string' && c.toLowerCase() === val.toLowerCase())) {
       setForm(p => ({ ...p, colors: [...(p.colors || []), val] }));
     }
     setColorInputText('');
@@ -535,6 +535,7 @@ function ProductModal({ product, onClose, onSave }) {
                 {form.colors.map((c, i) => {
                   const cName = getColorName(c);
                   const swatch = getColorSwatch(c);
+                  const isHex = typeof c === 'string' && c.startsWith('#');
                   return (
                     <span
                       key={i}
@@ -563,7 +564,7 @@ function ProductModal({ product, onClose, onSave }) {
                         }}
                       />
                       <span>{cName}</span>
-                      {c.startsWith('#') && (
+                      {isHex && (
                         <span style={{ color: '#94A3B8', fontSize: '10px', fontWeight: 500 }}>({c})</span>
                       )}
                       <button
@@ -602,14 +603,14 @@ function ProductModal({ product, onClose, onSave }) {
               </span>
               <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                 {PRESET_COLORS.slice(0, 12).map(p => {
-                  const isAdded = (form.colors || []).some(c => c.toLowerCase() === p.name.toLowerCase() || c.toLowerCase() === p.value.toLowerCase());
+                  const isAdded = (form.colors || []).some(c => typeof c === 'string' && (c.toLowerCase() === p.name.toLowerCase() || c.toLowerCase() === p.hex.toLowerCase()));
                   return (
                     <button
                       key={p.name}
                       type="button"
                       onClick={() => {
                         if (isAdded) {
-                          setForm(prev => ({ ...prev, colors: (prev.colors || []).filter(c => c.toLowerCase() !== p.name.toLowerCase() && c.toLowerCase() !== p.value.toLowerCase()) }));
+                          setForm(prev => ({ ...prev, colors: (prev.colors || []).filter(c => typeof c === 'string' && c.toLowerCase() !== p.name.toLowerCase() && c.toLowerCase() !== p.hex.toLowerCase()) }));
                         } else {
                           setForm(prev => ({ ...prev, colors: [...(prev.colors || []), p.name] }));
                         }
@@ -634,7 +635,7 @@ function ProductModal({ product, onClose, onSave }) {
                           width: '9px',
                           height: '9px',
                           borderRadius: '50%',
-                          background: p.value,
+                          background: p.hex,
                           border: isAdded ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(0,0,0,0.15)',
                           flexShrink: 0
                         }}
