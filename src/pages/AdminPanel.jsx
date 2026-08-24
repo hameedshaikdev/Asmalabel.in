@@ -535,27 +535,66 @@ function ProductModal({ product, onClose, onSave }) {
           </div>
 
           {/* Color Swatches Option */}
-          <div style={{ background:'#F8FAFC', padding:'12px', borderRadius:'14px', border:'1px solid #E2E8F0' }}>
-            <label style={{ fontSize:'11px', fontWeight:800, color:'#1A1A2E', textTransform:'uppercase', display:'block', marginBottom:'6px', letterSpacing:'.5px' }}>
-              🎨 Color Swatches / Options (Optional)
-            </label>
+          <div style={{ background:'#F8FAFC', padding:'14px', borderRadius:'14px', border:'1px solid #E2E8F0', display:'flex', flexDirection:'column', gap:'10px' }}>
+            <div>
+              <label style={{ fontSize:'11px', fontWeight:800, color:'#1A1A2E', textTransform:'uppercase', display:'block', marginBottom:'2px', letterSpacing:'.5px' }}>
+                🎨 Color Swatches / Options (Optional)
+              </label>
+              <p style={{ fontSize:'11px', color:'#64748B', margin:0 }}>
+                Colors added here will display as interactive color selectors in the customer overview.
+              </p>
+            </div>
+
             {form.colors?.length > 0 && (
-              <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'8px' }}>
-                {form.colors.map((c, i) => (
-                  <span key={i} style={{ display:'inline-flex', alignItems:'center', gap:'5px', padding:'3px 8px', borderRadius:'8px', background:'white', border:'1px solid #CBD5E1', fontSize:'11px', fontWeight:700, color:'#0F172A' }}>
-                    <span style={{ width:'12px', height:'12px', borderRadius:'50%', background: c, border:'1px solid rgba(0,0,0,0.2)' }} />
-                    {c}
-                    <button type="button" onClick={() => setForm(p => ({ ...p, colors: p.colors.filter((_, idx) => idx !== i) }))} style={{ background:'none', border:'none', cursor:'pointer', color:'#EF4444', padding:0, display:'flex', alignItems:'center' }}>
-                      <X size={10} />
-                    </button>
-                  </span>
-                ))}
+              <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
+                {form.colors.map((c, i) => {
+                  const cName = getColorName(c);
+                  const swatch = getColorSwatch(c);
+                  return (
+                    <span key={i} style={{ display:'inline-flex', alignItems:'center', gap:'6px', padding:'4px 10px', borderRadius:'8px', background:'white', border:'1px solid #CBD5E1', fontSize:'11.5px', fontWeight:700, color:'#0F172A', boxShadow:'0 1px 3px rgba(0,0,0,0.04)' }}>
+                      <span style={{ width:'13px', height:'13px', borderRadius:'50%', background: swatch, border:'1px solid rgba(0,0,0,0.2)', flexShrink:0 }} />
+                      <span>{cName}</span>
+                      <span style={{ color:'#94A3B8', fontSize:'10px', fontWeight:500 }}>({c})</span>
+                      <button type="button" onClick={() => setForm(p => ({ ...p, colors: p.colors.filter((_, idx) => idx !== i) }))} style={{ background:'none', border:'none', cursor:'pointer', color:'#EF4444', padding:'0 0 0 2px', display:'flex', alignItems:'center' }}>
+                        <X size={12} />
+                      </button>
+                    </span>
+                  );
+                })}
               </div>
             )}
+
+            {/* Quick Preset Color Buttons */}
+            <div>
+              <span style={{ fontSize:'10.5px', fontWeight:700, color:'#64748B', display:'block', marginBottom:'5px' }}>
+                Quick Add Presets:
+              </span>
+              <div style={{ display:'flex', gap:'5px', flexWrap:'wrap' }}>
+                {PRESET_COLORS.slice(0, 10).map(p => (
+                  <button
+                    key={p.name}
+                    type="button"
+                    onClick={() => {
+                      if (!form.colors?.includes(p.value)) {
+                        setForm(prev => ({ ...prev, colors: [...(prev.colors || []), p.value] }));
+                      }
+                    }}
+                    style={{
+                      display:'inline-flex', alignItems:'center', gap:'4px', padding:'3px 8px', borderRadius:'6px',
+                      background:'#FFFFFF', border:'1px solid #E2E8F0', fontSize:'10.5px', fontWeight:700, color:'#334155', cursor:'pointer'
+                    }}
+                  >
+                    <span style={{ width:'9px', height:'9px', borderRadius:'50%', background:p.value, border:'1px solid rgba(0,0,0,0.15)' }} />
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div style={{ display:'flex', gap:'6px' }}>
               <input type="color" value={newColorHex} onChange={e => setNewColorHex(e.target.value)} style={{ width:'38px', height:'38px', border:'1px solid #CBD5E1', borderRadius:'8px', cursor:'pointer', padding:'2px', background:'white' }} />
               <input placeholder="Color hex (e.g. #0F172A)" value={newColorHex} onChange={e => setNewColorHex(e.target.value)} style={{ ...S, flex:1 }} />
-              <button type="button" onClick={() => { if(!newColorHex) return; setForm(p => ({ ...p, colors: [...(p.colors||[]), newColorHex] })); }}
+              <button type="button" onClick={() => { if(!newColorHex) return; if (!form.colors?.includes(newColorHex)) { setForm(p => ({ ...p, colors: [...(p.colors||[]), newColorHex] })); } }}
                 style={{ padding:'8px 14px', borderRadius:'10px', background:'#1A1A2E', color:'white', fontWeight:800, fontSize:'12px', border:'none', cursor:'pointer', whiteSpace:'nowrap' }}>
                 + Add Color
               </button>
@@ -1745,7 +1784,6 @@ export default function AdminPanel() {
     }
   });
 
-  const [productSubTab, setProductSubTab] = useState('catalog'); // catalog | coupons
   const [couponModalOpen, setCouponModalOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState(null);
   const [couponForm, setCouponForm] = useState({
@@ -2681,34 +2719,8 @@ buildPages(4);
           {page==='products' && (
             <div className="page-enter" style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
 
-              {/* Sub-tab Pill Switcher */}
-              <div style={{ display: 'flex', gap: '6px', background: '#FFFFFF', padding: '4px', borderRadius: '12px', border: '1px solid #E5E7EB', width: 'fit-content' }}>
-                <button
-                  onClick={() => setProductSubTab('catalog')}
-                  style={{
-                    padding: '6px 14px', borderRadius: '9px', fontSize: '12px', fontWeight: 800, border: 'none', cursor: 'pointer',
-                    background: productSubTab === 'catalog' ? '#0F172A' : 'transparent',
-                    color: productSubTab === 'catalog' ? '#FFFFFF' : '#475569'
-                  }}
-                >
-                  📦 Products Catalog ({products.length})
-                </button>
-                <button
-                  onClick={() => setProductSubTab('coupons')}
-                  style={{
-                    padding: '6px 14px', borderRadius: '9px', fontSize: '12px', fontWeight: 800, border: 'none', cursor: 'pointer',
-                    background: productSubTab === 'coupons' ? '#0F172A' : 'transparent',
-                    color: productSubTab === 'coupons' ? '#FFFFFF' : '#475569'
-                  }}
-                >
-                  🏷️ Coupons &amp; Promo Rules ({couponsList.length})
-                </button>
-              </div>
-
-              {productSubTab === 'catalog' && (
-                <>
-                  {/* Toolbar */}
-                  <div style={{ background:'#FFFFFF', borderRadius:'14px', border:'1px solid #E5E7EB', padding:'14px', boxSizing:'border-box' }}>
+              {/* Toolbar */}
+              <div style={{ background:'#FFFFFF', borderRadius:'14px', border:'1px solid #E5E7EB', padding:'14px', boxSizing:'border-box' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'10px' }}>
                       <div>
                         <h1 style={{ fontSize:'16px', fontWeight:900, color:'#111827', margin:0 }}>Products</h1>
@@ -2824,141 +2836,6 @@ buildPages(4);
                   })}
                 </div>
               )}
-              </>
-              )}
-
-              {/* COUPONS SUB-TAB / TAB VIEW */}
-              {(productSubTab === 'coupons' || page === 'coupons') && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {/* Toolbar */}
-                  <div style={{ background: '#FFFFFF', borderRadius: '14px', border: '1px solid #E5E7EB', padding: '16px', boxSizing: 'border-box' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                      <div>
-                        <h1 style={{ fontSize: '18px', fontWeight: 900, color: '#0F172A', margin: 0, letterSpacing: '-0.3px' }}>
-                          Promo Coupons &amp; Discount Rules 🏷️
-                        </h1>
-                        <p style={{ fontSize: '12px', color: '#64748B', margin: '2px 0 0' }}>
-                          Configure item-specific rules, price tag restrictions, category caps &amp; storewide promo codes
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => openCouponModal()}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '6px',
-                          padding: '9px 16px', borderRadius: '10px', background: '#0F172A',
-                          color: '#FFFFFF', fontWeight: 800, fontSize: '12.5px', border: 'none', cursor: 'pointer',
-                          boxShadow: '0 4px 12px rgba(15,23,42,0.15)'
-                        }}
-                      >
-                        <Plus size={15} /> Create New Coupon
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Coupon Cards Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '14px' }}>
-                    {couponsList.map((cpn) => (
-                      <div key={cpn.code} style={{
-                        background: '#FFFFFF', borderRadius: '16px', border: cpn.active ? '1.5px solid #CBD5E1' : '1px dashed #CBD5E1',
-                        padding: '16px', boxShadow: '0 4px 14px rgba(15,23,42,0.03)', opacity: cpn.active ? 1 : 0.6,
-                        display: 'flex', flexDirection: 'column', gap: '10px'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '16px', fontWeight: 900, color: '#0F172A', letterSpacing: '0.5px' }}>
-                              {cpn.code}
-                            </span>
-                            <span style={{
-                              fontSize: '11px', fontWeight: 900, padding: '2px 8px', borderRadius: '6px',
-                              background: cpn.type === 'percent' ? '#DCFCE7' : '#FEF3C7',
-                              color: cpn.type === 'percent' ? '#166534' : '#92400E'
-                            }}>
-                              {cpn.type === 'percent' ? `${cpn.val}% OFF` : `₹${cpn.val} OFF`}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            {cpn.hidden && (
-                              <span style={{ fontSize: '10px', fontWeight: 800, background: '#F1F5F9', color: '#64748B', padding: '2px 6px', borderRadius: '4px' }}>
-                                Hidden
-                              </span>
-                            )}
-                            <span style={{ fontSize: '10px', fontWeight: 800, background: cpn.active ? '#DCFCE7' : '#FEE2E2', color: cpn.active ? '#166534' : '#991B1B', padding: '2px 6px', borderRadius: '4px' }}>
-                              {cpn.active ? 'Active' : 'Disabled'}
-                            </span>
-                          </div>
-                        </div>
-
-                        <p style={{ fontSize: '12.5px', color: '#475569', margin: 0, fontWeight: 500 }}>
-                          {cpn.desc}
-                        </p>
-
-                        {/* Rules & Applicability badges */}
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '11px' }}>
-                          <span style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '3px 8px', borderRadius: '6px', color: '#334155', fontWeight: 700 }}>
-                            Scope: {
-                              cpn.scope === 'ALL_PRODUCTS' ? '🌐 Storewide (All Items)' :
-                              cpn.scope === 'SPECIFIC_CATEGORY' ? `🏷️ Category: ${cpn.applicableCategory}` :
-                              cpn.scope === 'SELECTED_PRODUCTS' ? `📦 Specific Items (${cpn.applicableProductIds?.length || 0})` :
-                              cpn.scope === 'MIN_PRICE_TAG' ? `💰 Price Tag ≥ ₹${cpn.minItemPrice}` : 'Storewide'
-                            }
-                          </span>
-                          {cpn.minCartTotal > 0 && (
-                            <span style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '3px 8px', borderRadius: '6px', color: '#334155', fontWeight: 700 }}>
-                              Min Cart: ₹{cpn.minCartTotal}
-                            </span>
-                          )}
-                          {cpn.maxDiscount > 0 && (
-                            <span style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '3px 8px', borderRadius: '6px', color: '#334155', fontWeight: 700 }}>
-                              Max Cap: ₹{cpn.maxDiscount}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Action buttons */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '10px', borderTop: '1px solid #F1F5F9', marginTop: 'auto' }}>
-                          <button
-                            onClick={() => handleToggleCouponActive(cpn.code)}
-                            style={{
-                              flex: 1, padding: '6px', borderRadius: '8px', fontSize: '11.5px', fontWeight: 800, cursor: 'pointer', border: 'none',
-                              background: cpn.active ? '#FFFBEB' : '#ECFDF5', color: cpn.active ? '#D97706' : '#059669'
-                            }}
-                          >
-                            {cpn.active ? 'Disable' : 'Enable'}
-                          </button>
-                          <button
-                            onClick={() => handleToggleCouponHidden(cpn.code)}
-                            style={{
-                              flex: 1, padding: '6px', borderRadius: '8px', fontSize: '11.5px', fontWeight: 800, cursor: 'pointer', border: 'none',
-                              background: '#F1F5F9', color: '#475569'
-                            }}
-                          >
-                            {cpn.hidden ? 'Show' : 'Hide'}
-                          </button>
-                          <button
-                            onClick={() => openCouponModal(cpn)}
-                            style={{
-                              padding: '6px 12px', borderRadius: '8px', fontSize: '11.5px', fontWeight: 800, cursor: 'pointer', border: 'none',
-                              background: '#EFF6FF', color: '#1D4ED8'
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteCoupon(cpn.code)}
-                            style={{
-                              padding: '6px 12px', borderRadius: '8px', fontSize: '11.5px', fontWeight: 800, cursor: 'pointer', border: 'none',
-                              background: '#FEF2F2', color: '#DC2626'
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
             </div>
           )}
 

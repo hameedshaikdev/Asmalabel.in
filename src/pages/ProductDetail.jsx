@@ -236,28 +236,53 @@ export default function ProductDetail() {
     return set;
   }, [hasVariants, variants]);
 
-  // Extract available colors
+  // Extract all available colors (aggregates variants + color options + parsed tags)
   const availableColors = useMemo(() => {
-    if (hasVariants) {
-      const list = [];
+    const list = [];
+    const seen = new Set();
+
+    // 1. Variant-specific colors
+    if (hasVariants && variants.length > 0) {
       variants.forEach(v => {
-        if (v.color && !list.some(c => c.name === v.color)) {
-          list.push({
-            name: v.color,
-            value: v.color_value || getColorSwatch(v.color),
-          });
+        if (v.color && typeof v.color === 'string' && v.color.trim()) {
+          const cTrim = v.color.trim();
+          const cName = getColorName(cTrim);
+          const key = cName.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            list.push({
+              name: cName,
+              value: v.color_value || getColorSwatch(cTrim),
+              raw: v.color_value || cTrim,
+            });
+          }
         }
       });
-      return list;
     }
-    const legacy = (product?.colors && Array.isArray(product.colors) && product.colors.length > 0)
-      ? product.colors
-      : (parsedColors || []);
-    return legacy.map(c => ({
-      name: getColorName(c),
-      value: getColorSwatch(c),
-      raw: c,
-    }));
+
+    // 2. Extra colors from parsed tags & DB colors
+    const extraColors = [
+      ...(Array.isArray(parsedColors) ? parsedColors : []),
+      ...(Array.isArray(product?.colors) ? product.colors : []),
+    ];
+
+    extraColors.forEach(c => {
+      if (c && typeof c === 'string' && c.trim()) {
+        const cTrim = c.trim();
+        const cName = getColorName(cTrim);
+        const key = cName.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            name: cName,
+            value: getColorSwatch(cTrim),
+            raw: cTrim,
+          });
+        }
+      }
+    });
+
+    return list;
   }, [hasVariants, variants, product, parsedColors]);
 
   // Set initial selected variant when product changes
@@ -849,27 +874,22 @@ export default function ProductDetail() {
                         className={`pd-swatch-circle ${isSelected ? 'active' : ''}`}
                         title={colorDisplayName}
                         style={{
-                          width: '34px',
-                          height: '34px',
+                          width: '32px',
+                          height: '32px',
                           borderRadius: '50%',
                           backgroundColor: swatchColor,
-                          border: isSelected ? '2.5px solid #0F172A' : '1.5px solid #CBD5E1',
-                          outline: isSelected ? '2px solid #0F172A' : 'none',
+                          border: isSelected ? '2px solid #FFFFFF' : '1.5px solid #E2E8F0',
+                          outline: isSelected ? '2.5px solid #0F172A' : 'none',
                           outlineOffset: '2px',
                           cursor: 'pointer',
                           position: 'relative',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          boxShadow: isSelected ? '0 4px 10px rgba(0,0,0,0.15)' : '0 2px 5px rgba(0,0,0,0.06)',
-                          transition: 'all 0.2s ease',
-                          opacity: comboExists ? 1 : 0.4,
+                          display: 'inline-block',
+                          boxShadow: isSelected ? '0 0 0 2px #0F172A, 0 3px 8px rgba(0,0,0,0.15)' : '0 1px 4px rgba(0,0,0,0.08)',
+                          transform: isSelected ? 'scale(1.08)' : 'scale(1)',
+                          transition: 'all 0.18s ease',
+                          opacity: comboExists ? 1 : 0.45,
                         }}
-                      >
-                        {isSelected && (
-                          <Check size={14} color={swatchColor === '#FFFFFF' || swatchColor.toLowerCase() === '#fff' ? '#0F172A' : '#FFFFFF'} strokeWidth={3} />
-                        )}
-                      </button>
+                      />
                     );
                   })}
                 </div>

@@ -30,26 +30,51 @@ export default function QuickViewModal({ product, onClose }) {
   const { cleanDesc, discount_tag, colors: parsedColors } = parsedTags;
 
   const availableColors = useMemo(() => {
-    if (hasVariants) {
-      const colors = [];
+    const list = [];
+    const seen = new Set();
+
+    // 1. Variant-specific colors
+    if (hasVariants && variants.length > 0) {
       variants.forEach(v => {
-        if (v.color && !colors.some(c => c.name === v.color)) {
-          colors.push({
-            name: v.color,
-            value: v.color_value || getColorSwatch(v.color),
-          });
+        if (v.color && typeof v.color === 'string' && v.color.trim()) {
+          const cTrim = v.color.trim();
+          const cName = getColorName(cTrim);
+          const key = cName.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            list.push({
+              name: cName,
+              value: v.color_value || getColorSwatch(cTrim),
+              raw: v.color_value || cTrim,
+            });
+          }
         }
       });
-      return colors;
     }
-    const legacy = (product?.colors && Array.isArray(product.colors) && product.colors.length > 0)
-      ? product.colors
-      : (parsedColors || []);
-    return legacy.map(c => ({
-      name: getColorName(c),
-      value: getColorSwatch(c),
-      raw: c,
-    }));
+
+    // 2. Extra colors from parsed tags & DB colors
+    const extraColors = [
+      ...(Array.isArray(parsedColors) ? parsedColors : []),
+      ...(Array.isArray(product?.colors) ? product.colors : []),
+    ];
+
+    extraColors.forEach(c => {
+      if (c && typeof c === 'string' && c.trim()) {
+        const cTrim = c.trim();
+        const cName = getColorName(cTrim);
+        const key = cName.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            name: cName,
+            value: getColorSwatch(cTrim),
+            raw: cTrim,
+          });
+        }
+      }
+    });
+
+    return list;
   }, [hasVariants, variants, product, parsedColors]);
 
   const [selectedSize, setSelectedSize] = useState(null);
@@ -559,20 +584,16 @@ export default function QuickViewModal({ product, onClose }) {
                             height: '28px',
                             borderRadius: '50%',
                             backgroundColor: swatchColor,
-                            border: isSelected ? '2px solid #0F172A' : '1px solid #CBD5E1',
+                            border: isSelected ? '2px solid #FFFFFF' : '1px solid #CBD5E1',
                             outline: isSelected ? '2px solid #0F172A' : 'none',
                             outlineOffset: '2px',
                             cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.2s',
+                            display: 'inline-block',
+                            boxShadow: isSelected ? '0 0 0 2px #0F172A, 0 2px 6px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.08)',
+                            transform: isSelected ? 'scale(1.08)' : 'scale(1)',
+                            transition: 'all 0.18s ease',
                           }}
-                        >
-                          {isSelected && (
-                            <Check size={12} color={swatchColor === '#FFFFFF' || swatchColor.toLowerCase() === '#fff' ? '#0F172A' : '#FFFFFF'} strokeWidth={3} />
-                          )}
-                        </button>
+                        />
                       );
                     })}
                   </div>
