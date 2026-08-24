@@ -103,7 +103,31 @@ export default function Profile() {
     }
   }, [user, loading, navigate]);
 
-  if (loading || !user) return null;
+  const DEFAULT_COUPONS = [
+    { code: 'ASMA10', desc: '10% OFF Storewide', type: 'percent', val: 10, scope: 'ALL_PRODUCTS', active: true, hidden: false },
+    { code: 'WELCOME50', desc: '₹50 OFF on Orders Above ₹299', type: 'flat', val: 50, scope: 'ALL_PRODUCTS', minCartTotal: 299, active: true, hidden: false },
+    { code: 'TAILOR100', desc: '₹100 OFF Tailoring Supplies', type: 'flat', val: 100, scope: 'SPECIFIC_CATEGORY', applicableCategory: 'tailoring', minCartTotal: 499, active: true, hidden: false },
+    { code: 'FASHION20', desc: '20% OFF Women\'s Fashion Items', type: 'percent', val: 20, scope: 'SPECIFIC_CATEGORY', applicableCategory: 'fashion', minItemPrice: 999, active: true, hidden: false }
+  ];
+
+  const [couponsList, setCouponsList] = useState([]);
+
+  useEffect(() => {
+    const loadCoupons = () => {
+      try {
+        const stored = localStorage.getItem('asmalabel_coupons_list');
+        if (stored) {
+          setCouponsList(JSON.parse(stored));
+          return;
+        }
+      } catch (e) { console.error(e); }
+      setCouponsList(DEFAULT_COUPONS);
+    };
+
+    loadCoupons();
+    window.addEventListener('storage', loadCoupons);
+    return () => window.removeEventListener('storage', loadCoupons);
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -199,33 +223,7 @@ export default function Profile() {
     if (showToast) showToast('Default address updated!', null, 'wishlist');
   }
 
-  const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Member';
-
-  const DEFAULT_COUPONS = [
-    { code: 'ASMA10', desc: '10% OFF Storewide', type: 'percent', val: 10, scope: 'ALL_PRODUCTS', active: true, hidden: false },
-    { code: 'WELCOME50', desc: '₹50 OFF on Orders Above ₹299', type: 'flat', val: 50, scope: 'ALL_PRODUCTS', minCartTotal: 299, active: true, hidden: false },
-    { code: 'TAILOR100', desc: '₹100 OFF Tailoring Supplies', type: 'flat', val: 100, scope: 'SPECIFIC_CATEGORY', applicableCategory: 'tailoring', minCartTotal: 499, active: true, hidden: false },
-    { code: 'FASHION20', desc: '20% OFF Women\'s Fashion Items', type: 'percent', val: 20, scope: 'SPECIFIC_CATEGORY', applicableCategory: 'fashion', minItemPrice: 999, active: true, hidden: false }
-  ];
-
-  const [couponsList, setCouponsList] = useState([]);
-
-  useEffect(() => {
-    const loadCoupons = () => {
-      try {
-        const stored = localStorage.getItem('asmalabel_coupons_list');
-        if (stored) {
-          setCouponsList(JSON.parse(stored));
-          return;
-        }
-      } catch (e) { console.error(e); }
-      setCouponsList(DEFAULT_COUPONS);
-    };
-
-    loadCoupons();
-    window.addEventListener('storage', loadCoupons);
-    return () => window.removeEventListener('storage', loadCoupons);
-  }, []);
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Member';
 
   // Filter coupons: ONLY show Active & NON-hidden coupons in Profile page!
   const visibleCoupons = couponsList.filter(c => c.active !== false && c.hidden !== true);
@@ -240,6 +238,8 @@ export default function Profile() {
     const msg = `Hello Asmalabel Support! 👋 I need assistance with my account / order.`;
     window.open(`https://wa.me/${SHOP_WA}?text=${encodeURIComponent(msg)}`, '_blank');
   }
+
+  if (loading || !user) return null;
 
   return (
     <div style={{ background: '#F8FAFC', minHeight: '100vh', padding: '20px 16px 80px' }}>

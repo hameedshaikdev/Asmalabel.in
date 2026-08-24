@@ -360,16 +360,33 @@ export default function OrderStatus() {
                     {item.quantity || 1}
                   </span>
                 </div>
-                <div style={{ minWidth:0 }}>
-                  <p style={{ fontSize:'13.5px', fontWeight:800, color:'#0F172A', margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                    {item.name}
-                  </p>
-                  {item.unit && (
-                    <p style={{ fontSize:'11.5px', color:'#64748B', margin:'2px 0 0', fontWeight:500 }}>
-                      {item.unit}
+                  <div style={{ minWidth:0 }}>
+                    <p style={{ fontSize:'13.5px', fontWeight:800, color:'#0F172A', margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {item.name}
                     </p>
-                  )}
-                </div>
+                    {(item.size || item.color) && (
+                      <div style={{ display:'flex', alignItems:'center', gap:'6px', marginTop:'3px', flexWrap:'wrap' }}>
+                        {item.size && (
+                          <span style={{ fontSize:'10.5px', fontWeight:700, color:'#0F172A', background:'#E2E8F0', padding:'1px 6px', borderRadius:'4px' }}>
+                            Size: {item.size}
+                          </span>
+                        )}
+                        {item.color && (
+                          <span style={{ display:'inline-flex', alignItems:'center', gap:'4px', fontSize:'10.5px', fontWeight:700, color:'#0F172A', background:'#E2E8F0', padding:'1px 6px', borderRadius:'4px' }}>
+                            {item.color_value && (
+                              <span style={{ width:'8px', height:'8px', borderRadius:'50%', background:item.color_value, border:'1px solid rgba(0,0,0,0.2)' }} />
+                            )}
+                            Color: {item.color}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {item.unit && !item.size && (
+                      <p style={{ fontSize:'11.5px', color:'#64748B', margin:'2px 0 0', fontWeight:500 }}>
+                        {item.unit}
+                      </p>
+                    )}
+                  </div>
               </div>
               <span style={{ fontSize:'14px', fontWeight:900, color:'#0F172A', flexShrink:0 }}>
                 ₹{Number(item.price || 0).toFixed(2)}

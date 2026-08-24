@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Heart, ShoppingCart, Star, ShieldCheck, Truck, Sparkles, Plus, Minus, Play, Tv, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Heart, ShoppingCart, Star, ShieldCheck, Truck, Sparkles, Plus, Minus, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { getProductImage, parseProductTags } from '../../utils/productImages';
+import { getColorName, getColorSwatch } from '../../utils/colorUtils';
 import ProductVideoPlayer from './ProductVideoPlayer';
 
 export default function QuickViewModal({ product, onClose }) {
@@ -12,6 +13,150 @@ export default function QuickViewModal({ product, onClose }) {
   const [imgError, setImgError] = useState(false);
   const [added, setAdded] = useState(false);
 
+  // Variant State
+  const hasVariants = Boolean(product?.variants && Array.isArray(product.variants) && product.variants.length > 0);
+  const variants = useMemo(() => (hasVariants ? product.variants : []), [hasVariants, product]);
+
+  const availableSizes = useMemo(() => {
+    if (!hasVariants) return [];
+    const sizes = [];
+    variants.forEach(v => {
+      if (v.size && !sizes.includes(v.size)) sizes.push(v.size);
+    });
+    return sizes;
+  }, [hasVariants, variants]);
+
+  const parsedTags = useMemo(() => parseProductTags(product || {}), [product]);
+  const { cleanDesc, discount_tag, colors: parsedColors } = parsedTags;
+
+  const availableColors = useMemo(() => {
+    if (hasVariants) {
+      const colors = [];
+      variants.forEach(v => {
+        if (v.color && !colors.some(c => c.name === v.color)) {
+          colors.push({
+            name: v.color,
+            value: v.color_value || getColorSwatch(v.color),
+          });
+        }
+      });
+      return colors;
+    }
+    const legacy = (product?.colors && Array.isArray(product.colors) && product.colors.length > 0)
+      ? product.colors
+      : (parsedColors || []);
+    return legacy.map(c => ({
+      name: getColorName(c),
+      value: getColorSwatch(c),
+      raw: c,
+    }));
+  }, [hasVariants, variants, product, parsedColors]);
+
+  const [selectedSize, setSelectedSize] = useState(null);
+  const [selectedColor, setSelectedColor] = useState(null);
+
+  useEffect(() => {
+    if (!product) return;
+    if (hasVariants) {
+      const defaultVar = variants.find(v => v.is_default) || variants[0];
+      if (defaultVar) {
+        setSelectedSize(defaultVar.size || null);
+        setSelectedColor(defaultVar.color || null);
+      }
+    } else {
+      setSelectedSize(null);
+      if (availableColors.length > 0) {
+        setSelectedColor(availableColors[0].name || availableColors[0].raw || availableColors[0]);
+      } else {
+        setSelectedColor(null);
+      }
+    }
+  }, [hasVariants, variants, product]);
+
+  const activeVariant = useMemo(() => {
+    if (!hasVariants) return null;
+    if (selectedSize && selectedColor) {
+      const match = variants.find(v => v.size === selectedSize && v.color === selectedColor);
+      if (match) return match;
+    }
+    if (selectedSize) {
+      const match = variants.find(v => v.size === selectedSize && (!selectedColor || v.color === selectedColor));
+      if (match) return match;
+      const sizeMatch = variants.find(v => v.size === selectedSize);
+      if (sizeMatch) return sizeMatch;
+    }
+    if (selectedColor) {
+      const match = variants.find(v => v.color === selectedColor && (!selectedSize || v.size === selectedSize));
+      if (match) return match;
+      const colorMatch = variants.find(v => v.color === selectedColor);
+      if (colorMatch) return colorMatch;
+    }
+    return variants.find(v => v.is_default) || variants[0] || null;
+  }, [hasVariants, variants, selectedSize, selectedColor]);
+
+  const handleSizeSelect = (size) => {
+    setSelectedSize(size);
+    setSelImg(0);
+    const exactExists = variants.some(v => v.size === size && v.color === selectedColor);
+    if (!exactExists) {
+      const firstValid = variants.find(v => v.size === size && v.color);
+      if (firstValid) setSelectedColor(firstValid.color);
+    }
+  };
+
+  const handleColorSelect = (colorIdentifier) => {
+    const colorName = typeof colorIdentifier === 'object' ? (colorIdentifier.name || colorIdentifier.raw) : colorIdentifier;
+    setSelectedColor(colorName);
+    setSelImg(0);
+    if (hasVariants && selectedSize) {
+      const exactExists = variants.some(v => v.size === selectedSize && v.color === colorName);
+      if (!exactExists) {
+        const firstValid = variants.find(v => v.color === colorName);
+        if (firstValid && firstValid.size) setSelectedSize(firstValid.size);
+      }
+    }
+  };
+
+  // Price & Stock
+  const priceNum = activeVariant
+    ? (activeVariant.price !== undefined && activeVariant.price !== null && activeVariant.price !== '' ? Number(activeVariant.price) : Number(product?.price || 0))
+    : Number(product?.price || 0);
+
+  const origPriceNum = activeVariant
+    ? (activeVariant.original_price !== undefined && activeVariant.original_price !== null && activeVariant.original_price !== '' ? Number(activeVariant.original_price) : null)
+    : (product?.original_price ? Number(product.original_price) : null);
+
+  const discount = origPriceNum > priceNum && origPriceNum > 0
+    ? Math.round(((origPriceNum - priceNum) / origPriceNum) * 100)
+    : null;
+
+  const currentStock = activeVariant
+    ? (activeVariant.stock !== undefined && activeVariant.stock !== null && activeVariant.stock !== '' ? Number(activeVariant.stock) : null)
+    : (product?.stock !== undefined && product?.stock !== null ? Number(product.stock) : null);
+
+  const isOutOfStock = currentStock === 0;
+
+  // Images for variant
+  const allImages = useMemo(() => {
+    if (!product) return [];
+    if (activeVariant?.images && Array.isArray(activeVariant.images) && activeVariant.images.length > 0) {
+      const valid = activeVariant.images.filter(img => img && typeof img === 'string' && img.trim() !== '');
+      if (valid.length > 0) return valid;
+    }
+    const set = new Set();
+    const commonMain = getProductImage(product);
+    if (commonMain) set.add(commonMain);
+    if (Array.isArray(product.images)) {
+      product.images.forEach(img => {
+        if (img && typeof img === 'string' && img.trim() !== '') set.add(img.trim());
+      });
+    }
+    return Array.from(set);
+  }, [product, activeVariant]);
+
+  const mainImage = allImages[0] || getProductImage(product);
+  const currentImg = imgError ? 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80' : (allImages[selImg] || mainImage);
+
   // Touch Swipe & Desktop Mouse Drag Gesture Tracking
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
@@ -20,16 +165,6 @@ export default function QuickViewModal({ product, onClose }) {
   const dragDistance = useRef(0);
 
   const inWL = product ? isInWishlist(product.id) : false;
-  const { cleanDesc, discount_tag } = parseProductTags(product || {});
-  const discount = product && product.original_price && product.original_price > product.price
-    ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
-    : null;
-
-  const mainImage = getProductImage(product);
-  const allImages = Array.isArray(product?.images) && product.images.length > 0
-    ? product.images
-    : [mainImage];
-  const currentImg = imgError ? 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80' : (allImages[selImg] || mainImage);
 
   // Mobile Touch Gestures
   const handleTouchStart = (e) => {
@@ -347,13 +482,13 @@ export default function QuickViewModal({ product, onClose }) {
               </div>
 
               {/* Price Row */}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '16px' }}>
                 <span style={{ fontSize: '26px', fontWeight: 900, color: '#0F172A', letterSpacing: '-0.5px' }}>
-                  ₹{product.price.toFixed(0)}
+                  ₹{priceNum.toFixed(0)}
                 </span>
-                {product.original_price > product.price && (
+                {origPriceNum > priceNum && (
                   <span style={{ fontSize: '15px', color: '#94A3B8', textDecoration: 'line-through', fontWeight: 500 }}>
-                    ₹{product.original_price.toFixed(0)}
+                    ₹{origPriceNum.toFixed(0)}
                   </span>
                 )}
                 {(discount_tag || discount) && (
@@ -361,10 +496,91 @@ export default function QuickViewModal({ product, onClose }) {
                     {discount_tag || `-${discount}% off`}
                   </span>
                 )}
+                {currentStock !== null && (
+                  <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 800, color: isOutOfStock ? '#EF4444' : currentStock < 10 ? '#D97706' : '#059669', background: isOutOfStock ? '#FEE2E2' : currentStock < 10 ? '#FEF3C7' : '#DCFCE7', padding: '2px 8px', borderRadius: '6px' }}>
+                    {isOutOfStock ? 'Out of Stock' : currentStock < 10 ? `Only ${currentStock} left` : 'In Stock'}
+                  </span>
+                )}
               </div>
 
+              {/* Dynamic Size Selector */}
+              {availableSizes.length > 0 && (
+                <div style={{ marginBottom: '14px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', display: 'block', marginBottom: '6px' }}>
+                    Size: <strong>{selectedSize || availableSizes[0]}</strong>
+                  </span>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {availableSizes.map(size => {
+                      const isSelected = selectedSize === size;
+                      return (
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() => handleSizeSelect(size)}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 800,
+                            border: isSelected ? '2px solid #0F172A' : '1px solid #E2E8F0',
+                            background: isSelected ? '#0F172A' : '#FFFFFF',
+                            color: isSelected ? '#FFFFFF' : '#0F172A',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          {size}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Dynamic Color Selector (shows human-readable name) */}
+              {availableColors.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', display: 'block', marginBottom: '6px' }}>
+                    Color: <strong>{getColorName(selectedColor || availableColors[0]?.name || availableColors[0]?.raw || '')}</strong>
+                  </span>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {availableColors.map((c, idx) => {
+                      const colorIdentifier = c.name || c.raw;
+                      const isSelected = selectedColor === colorIdentifier || selectedColor === c.name || selectedColor === c.raw;
+                      const swatchColor = c.value || getColorSwatch(c.raw || c.name);
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleColorSelect(colorIdentifier)}
+                          title={getColorName(c.name || c.raw)}
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            backgroundColor: swatchColor,
+                            border: isSelected ? '2px solid #0F172A' : '1px solid #CBD5E1',
+                            outline: isSelected ? '2px solid #0F172A' : 'none',
+                            outlineOffset: '2px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          {isSelected && (
+                            <Check size={12} color={swatchColor === '#FFFFFF' || swatchColor.toLowerCase() === '#fff' ? '#0F172A' : '#FFFFFF'} strokeWidth={3} />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Description preview */}
-              <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6, marginBottom: '16px' }}>
+              <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6, marginBottom: '16px', whiteSpace: 'pre-line', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                 {cleanDesc || 'Engineered for exceptional performance and longevity. Designed with high-grade premium materials for superior craftsmanship.'}
               </p>
 
@@ -372,55 +588,62 @@ export default function QuickViewModal({ product, onClose }) {
               <ProductVideoPlayer product={product} compact={true} />
 
               {/* Quantity Selector */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '28px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>Quantity:</span>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  background: 'rgba(241, 245, 249, 0.8)',
-                  padding: '6px 14px',
-                  borderRadius: '9999px',
-                  border: '1px solid rgba(226, 232, 240, 0.8)'
-                }}>
-                  <button
-                    onClick={() => setQty(Math.max(1, qty - 1))}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                    <Minus size={14} color="#0F172A" />
-                  </button>
-                  <span style={{ fontSize: '14px', fontWeight: 900, color: '#0F172A', minWidth: '18px', textAlign: 'center' }}>{qty}</span>
-                  <button
-                    onClick={() => setQty(qty + 1)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                    <Plus size={14} color="#0F172A" />
-                  </button>
+              {!isOutOfStock && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>Quantity:</span>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    background: 'rgba(241, 245, 249, 0.8)',
+                    padding: '6px 14px',
+                    borderRadius: '9999px',
+                    border: '1px solid rgba(226, 232, 240, 0.8)'
+                  }}>
+                    <button
+                      onClick={() => setQty(Math.max(1, qty - 1))}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                      <Minus size={14} color="#0F172A" />
+                    </button>
+                    <span style={{ fontSize: '14px', fontWeight: 900, color: '#0F172A', minWidth: '18px', textAlign: 'center' }}>{qty}</span>
+                    <button
+                      onClick={() => setQty(qty + 1)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                      <Plus size={14} color="#0F172A" />
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Action Buttons */}
               <div style={{ display: 'flex', gap: '12px', marginTop: 'auto' }}>
                 <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.97 }}
+                  whileHover={{ scale: isOutOfStock ? 1 : 1.02 }}
+                  whileTap={{ scale: isOutOfStock ? 1 : 0.97 }}
                   onClick={handleAddToCart}
+                  disabled={isOutOfStock}
                   style={{
                     flex: 1,
                     height: '48px',
                     borderRadius: '9999px',
-                    background: added ? 'linear-gradient(135deg, #30D158, #25B046)' : 'linear-gradient(135deg, #1A1A2E, #0F3460)',
-                    color: 'white',
+                    background: added
+                      ? 'linear-gradient(135deg, #30D158, #25B046)'
+                      : isOutOfStock
+                        ? '#E2E8F0'
+                        : 'linear-gradient(135deg, #1A1A2E, #0F3460)',
+                    color: isOutOfStock ? '#94A3B8' : 'white',
                     fontWeight: 800,
                     fontSize: '14px',
                     border: 'none',
-                    cursor: 'pointer',
+                    cursor: isOutOfStock ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '8px',
-                    boxShadow: '0 8px 24px rgba(26, 26, 46, 0.25)'
+                    boxShadow: isOutOfStock ? 'none' : '0 8px 24px rgba(26, 26, 46, 0.25)'
                   }}>
                   <ShoppingCart size={16} />
-                  {added ? 'Added to Cart!' : 'Add to Cart'}
+                  {added ? 'Added to Cart!' : isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
                 </motion.button>
 
                 <motion.button

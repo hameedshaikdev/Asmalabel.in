@@ -319,7 +319,27 @@ export default function Cart() {
                   {/* Info */}
                   <div style={{ flex:1, minWidth:0, overflow:'hidden' }}>
                     <p style={{ fontWeight:800, fontSize:'14px', color:'#0F172A', marginBottom:'4px', overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', letterSpacing:'-0.2px', lineHeight:1.3 }}>{item.name}</p>
-                    {item.unit && <p style={{ fontSize:'12px', color:'#64748B', marginBottom:'8px', fontWeight:500 }}>{item.unit}</p>}
+                    
+                    {/* Variant Info Badge */}
+                    {(item.size || item.color) && (
+                      <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'6px', flexWrap:'wrap' }}>
+                        {item.size && (
+                          <span style={{ fontSize:'11px', fontWeight:700, color:'#0F172A', background:'#F1F5F9', border:'1px solid #E2E8F0', padding:'2px 7px', borderRadius:'6px' }}>
+                            Size: {item.size}
+                          </span>
+                        )}
+                        {item.color && (
+                          <span style={{ display:'inline-flex', alignItems:'center', gap:'5px', fontSize:'11px', fontWeight:700, color:'#0F172A', background:'#F1F5F9', border:'1px solid #E2E8F0', padding:'2px 7px', borderRadius:'6px' }}>
+                            {item.color_value && (
+                              <span style={{ width:'8px', height:'8px', borderRadius:'50%', background:item.color_value, border:'1px solid rgba(0,0,0,0.2)' }} />
+                            )}
+                            Color: {item.color}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {item.unit && !item.size && <p style={{ fontSize:'12px', color:'#64748B', marginBottom:'8px', fontWeight:500 }}>{item.unit}</p>}
                     <div style={{ display:'flex', alignItems:'baseline', gap:'8px' }}>
                       <span style={{ fontWeight:900, fontSize:'18px', color:'#0F172A' }}>₹{itemPrice.toFixed(0)}</span>
                       {itemOrigPrice > itemPrice && (

@@ -13,6 +13,8 @@ import {
 import { useApp } from '../context/AppContext';
 import { supabase } from '../config/supabase';
 import { getProductImage, parseProductTags } from '../utils/productImages';
+import { getColorName, getColorSwatch } from '../utils/colorUtils';
+import ProductDescription from '../components/products/ProductDescription';
 import SEO from '../components/common/SEO';
 import ProductVideoPlayer from '../components/products/ProductVideoPlayer';
 
@@ -40,8 +42,9 @@ export default function ProductDetail() {
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [reviewLikes,    setReviewLikes]    = useState({ 0: 2, 1: 5, 2: 3 });
 
-  // Dynamic color selection if product has colors configured in DB
+  // Dynamic color & size selection for variants
   const [selectedColor,  setSelectedColor]  = useState(null);
+  const [selectedSize,   setSelectedSize]   = useState(null);
 
   // Touch & Mouse Drag Gesture Tracking
   const touchStartX = useRef(0);
@@ -201,14 +204,6 @@ export default function ProductDetail() {
         if (error) throw error;
         setProduct(data);
 
-        const parsed = parseProductTags(data);
-        const availableColors = (data?.colors && Array.isArray(data.colors) && data.colors.length > 0)
-          ? data.colors
-          : (parsed.colors || []);
-        if (availableColors.length > 0) {
-          setSelectedColor(availableColors[0]);
-        }
-
         if (data) {
           const { data: rel } = await supabase.from('products').select('*')
             .eq('category', data.category).eq('active', true)
@@ -219,21 +214,138 @@ export default function ProductDetail() {
             .eq('active', true).neq('id', id).limit(2);
           setAddons(adds || []);
         }
-      } catch(err) { console.error(err); }
-      finally { setLoading(false); }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [id]);
 
+  // Dynamic variant detection
+  const hasVariants = Boolean(product?.variants && Array.isArray(product.variants) && product.variants.length > 0);
+  const variants = useMemo(() => (hasVariants ? product.variants : []), [hasVariants, product]);
+
+  // Extract unique sizes from variants
+  const availableSizes = useMemo(() => {
+    if (!hasVariants) return [];
+    const set = [];
+    variants.forEach(v => {
+      if (v.size && !set.includes(v.size)) set.push(v.size);
+    });
+    return set;
+  }, [hasVariants, variants]);
+
+  // Extract available colors
+  const availableColors = useMemo(() => {
+    if (hasVariants) {
+      const list = [];
+      variants.forEach(v => {
+        if (v.color && !list.some(c => c.name === v.color)) {
+          list.push({
+            name: v.color,
+            value: v.color_value || getColorSwatch(v.color),
+          });
+        }
+      });
+      return list;
+    }
+    const legacy = (product?.colors && Array.isArray(product.colors) && product.colors.length > 0)
+      ? product.colors
+      : (parsedColors || []);
+    return legacy.map(c => ({
+      name: getColorName(c),
+      value: getColorSwatch(c),
+      raw: c,
+    }));
+  }, [hasVariants, variants, product, parsedColors]);
+
+  // Set initial selected variant when product changes
+  useEffect(() => {
+    if (!product) return;
+    if (hasVariants) {
+      const defaultVar = variants.find(v => v.is_default) || variants[0];
+      if (defaultVar) {
+        setSelectedSize(defaultVar.size || null);
+        setSelectedColor(defaultVar.color || null);
+      }
+    } else {
+      setSelectedSize(null);
+      if (availableColors.length > 0) {
+        setSelectedColor(availableColors[0].name || availableColors[0].raw || availableColors[0]);
+      } else {
+        setSelectedColor(null);
+      }
+    }
+  }, [hasVariants, variants, product?.id]);
+
+  // Resolved active variant based on user selection
+  const activeVariant = useMemo(() => {
+    if (!hasVariants) return null;
+
+    if (selectedSize && selectedColor) {
+      const match = variants.find(v => v.size === selectedSize && v.color === selectedColor);
+      if (match) return match;
+    }
+
+    if (selectedSize) {
+      const match = variants.find(v => v.size === selectedSize && (!selectedColor || v.color === selectedColor));
+      if (match) return match;
+      const sizeMatch = variants.find(v => v.size === selectedSize);
+      if (sizeMatch) return sizeMatch;
+    }
+
+    if (selectedColor) {
+      const match = variants.find(v => v.color === selectedColor && (!selectedSize || v.size === selectedSize));
+      if (match) return match;
+      const colorMatch = variants.find(v => v.color === selectedColor);
+      if (colorMatch) return colorMatch;
+    }
+
+    return variants.find(v => v.is_default) || variants[0] || null;
+  }, [hasVariants, variants, selectedSize, selectedColor]);
+
+  // Size click handler with smart color combination auto-switch
+  const handleSizeSelect = (size) => {
+    setSelectedSize(size);
+    setSelImg(0);
+
+    const exactMatch = variants.some(v => v.size === size && v.color === selectedColor);
+    if (!exactMatch) {
+      const firstValidForSize = variants.find(v => v.size === size && v.color);
+      if (firstValidForSize) {
+        setSelectedColor(firstValidForSize.color);
+      }
+    }
+  };
+
+  // Color click handler with smart size combination auto-switch
+  const handleColorSelect = (colorIdentifier) => {
+    const colorName = typeof colorIdentifier === 'object' ? (colorIdentifier.name || colorIdentifier.raw) : colorIdentifier;
+    setSelectedColor(colorName);
+    setSelImg(0);
+
+    if (hasVariants && selectedSize) {
+      const exactMatch = variants.some(v => v.size === selectedSize && v.color === colorName);
+      if (!exactMatch) {
+        const firstValidForColor = variants.find(v => v.color === colorName);
+        if (firstValidForColor && firstValidForColor.size) {
+          setSelectedSize(firstValidForColor.size);
+        }
+      }
+    }
+  };
+
   const handleAddToCart = () => {
     if (!product) return;
-    addToCart(product, quantity);
+    addToCart(product, quantity, activeVariant);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
 
   const handleBuyNow = () => {
     if (!product) return;
-    addToCart(product, quantity);
+    addToCart(product, quantity, activeVariant);
     navigate('/cart');
   };
 
@@ -315,24 +427,47 @@ export default function ProductDetail() {
   const handlePrev = () => setSelImg(i => Math.max(i - 1, 0));
   const handleNext = (total) => setSelImg(i => Math.min(i + 1, total - 1));
 
-  const priceNum = Number(product?.price || 0);
-  const origPriceNum = Number(product?.original_price || 0);
+  const priceNum = activeVariant
+    ? (activeVariant.price !== undefined && activeVariant.price !== null && activeVariant.price !== '' ? Number(activeVariant.price) : Number(product?.price || 0))
+    : Number(product?.price || 0);
+
+  const origPriceNum = activeVariant
+    ? (activeVariant.original_price !== undefined && activeVariant.original_price !== null && activeVariant.original_price !== '' ? Number(activeVariant.original_price) : null)
+    : (product?.original_price ? Number(product.original_price) : null);
 
   const discount = origPriceNum > priceNum && origPriceNum > 0
     ? Math.round(((origPriceNum - priceNum) / origPriceNum) * 100)
     : null;
 
-  // Single clean list of unique images
-  const mainImage = getProductImage(product);
+  const currentStock = activeVariant
+    ? (activeVariant.stock !== undefined && activeVariant.stock !== null && activeVariant.stock !== '' ? Number(activeVariant.stock) : null)
+    : (product?.stock !== undefined && product?.stock !== null ? Number(product.stock) : null);
+
+  const isOutOfStock = currentStock === 0;
+
+  // Single clean list of images for current variant (fallback to common product gallery)
   const allImages = useMemo(() => {
     if (!product) return [];
+
+    // 1. Variant specific images
+    if (activeVariant?.images && Array.isArray(activeVariant.images) && activeVariant.images.length > 0) {
+      const valid = activeVariant.images.filter(img => img && typeof img === 'string' && img.trim() !== '');
+      if (valid.length > 0) return valid;
+    }
+
+    // 2. Common product images fallback (never another variant's images)
     const set = new Set();
-    if (mainImage) set.add(mainImage);
+    const commonMain = getProductImage(product);
+    if (commonMain) set.add(commonMain);
     if (Array.isArray(product.images)) {
-      product.images.forEach(img => { if (img && typeof img === 'string') set.add(img); });
+      product.images.forEach(img => {
+        if (img && typeof img === 'string' && img.trim() !== '') set.add(img.trim());
+      });
     }
     return Array.from(set);
-  }, [product, mainImage]);
+  }, [product, activeVariant]);
+
+  const mainImage = allImages[0] || getProductImage(product);
 
   useEffect(() => {
     const handleGlobalMouseMove = (e) => {
@@ -628,46 +763,128 @@ export default function ProductDetail() {
               </div>
 
               {/* Stock Status Indicator */}
-              {product.stock !== null && (
-                <div className="pd-stock-pill-box" style={{ background: product.stock === 0 ? 'rgba(239,68,68,0.08)' : product.stock < 10 ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)' }}>
-                  <div className="pd-live-pulse-dot" style={{ background: product.stock === 0 ? '#EF4444' : product.stock < 10 ? '#F59E0B' : '#10B981' }} />
-                  <span style={{ fontSize:'11.5px', fontWeight:800, color: product.stock === 0 ? '#EF4444' : product.stock < 10 ? '#D97706' : '#059669' }}>
-                    {product.stock === 0 ? 'Out of Stock' : product.stock < 10 ? `Only ${product.stock} left in stock!` : `In Stock (${product.stock} units)`}
+              {currentStock !== null && (
+                <div className="pd-stock-pill-box" style={{ background: isOutOfStock ? 'rgba(239,68,68,0.08)' : currentStock < 10 ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)' }}>
+                  <div className="pd-live-pulse-dot" style={{ background: isOutOfStock ? '#EF4444' : currentStock < 10 ? '#F59E0B' : '#10B981' }} />
+                  <span style={{ fontSize:'11.5px', fontWeight:800, color: isOutOfStock ? '#EF4444' : currentStock < 10 ? '#D97706' : '#059669' }}>
+                    {isOutOfStock ? 'Out of Stock' : currentStock < 10 ? `Only ${currentStock} left in stock!` : `In Stock (${currentStock} units)`}
                   </span>
                 </div>
               )}
             </div>
 
-            {/* Dynamic Product Colors if configured from Admin */}
-            {productColors.length > 0 && (
-              <div className="pd-variants-box">
-                <span className="pd-variant-label">
-                  Color: <strong>{selectedColor || productColors[0]}</strong>
+            {/* Dynamic Product Size Selector (shown when product has size variants) */}
+            {availableSizes.length > 0 && (
+              <div className="pd-variants-box" style={{ marginTop: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span className="pd-variant-label" style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
+                    Size: <strong style={{ color: '#0F172A' }}>{selectedSize || availableSizes[0]}</strong>
+                  </span>
+                  {activeVariant?.sku && (
+                    <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>
+                      SKU: {activeVariant.sku}
+                    </span>
+                  )}
+                </div>
+                <div className="pd-sizes-row" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {availableSizes.map((size) => {
+                    const isSelected = selectedSize === size;
+                    // Check if this size has valid variants with current color
+                    const matchingVariant = variants.find(v => v.size === size && (selectedColor ? v.color === selectedColor : true));
+                    const isVariantOOS = matchingVariant && matchingVariant.stock === 0;
+
+                    return (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => handleSizeSelect(size)}
+                        className={`pd-size-pill ${isSelected ? 'active' : ''}`}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: '10px',
+                          fontSize: '13px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          border: isSelected ? '2px solid #0F172A' : '1.5px solid #E2E8F0',
+                          background: isSelected ? '#0F172A' : '#FFFFFF',
+                          color: isSelected ? '#FFFFFF' : '#0F172A',
+                          transition: 'all 0.2s ease',
+                          boxShadow: isSelected ? '0 4px 12px rgba(15,23,42,0.12)' : 'none',
+                          opacity: isVariantOOS ? 0.6 : 1,
+                        }}
+                      >
+                        {size}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Dynamic Product Color Selector (shows human-readable name, NOT raw hex) */}
+            {availableColors.length > 0 && (
+              <div className="pd-variants-box" style={{ marginTop: availableSizes.length > 0 ? '4px' : '0' }}>
+                <span className="pd-variant-label" style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', marginBottom: '8px', display: 'block' }}>
+                  Color: <strong style={{ color: '#0F172A' }}>
+                    {getColorName(selectedColor || availableColors[0]?.name || availableColors[0]?.raw || '')}
+                  </strong>
                 </span>
-                <div className="pd-swatches-row">
-                  {productColors.map((c, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setSelectedColor(c)}
-                      className={`pd-swatch-circle ${selectedColor === c ? 'active' : ''}`}
-                      title={c}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
+                <div className="pd-swatches-row" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {availableColors.map((c, idx) => {
+                    const colorIdentifier = c.name || c.raw;
+                    const isSelected = selectedColor === colorIdentifier || selectedColor === c.name || selectedColor === c.raw;
+                    const swatchColor = c.value || getColorSwatch(c.raw || c.name);
+                    const colorDisplayName = getColorName(c.name || c.raw);
+
+                    // Check if this color is available for currently selected size
+                    const comboExists = hasVariants
+                      ? variants.some(v => (!selectedSize || v.size === selectedSize) && v.color === c.name)
+                      : true;
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleColorSelect(colorIdentifier)}
+                        className={`pd-swatch-circle ${isSelected ? 'active' : ''}`}
+                        title={colorDisplayName}
+                        style={{
+                          width: '34px',
+                          height: '34px',
+                          borderRadius: '50%',
+                          backgroundColor: swatchColor,
+                          border: isSelected ? '2.5px solid #0F172A' : '1.5px solid #CBD5E1',
+                          outline: isSelected ? '2px solid #0F172A' : 'none',
+                          outlineOffset: '2px',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: isSelected ? '0 4px 10px rgba(0,0,0,0.15)' : '0 2px 5px rgba(0,0,0,0.06)',
+                          transition: 'all 0.2s ease',
+                          opacity: comboExists ? 1 : 0.4,
+                        }}
+                      >
+                        {isSelected && (
+                          <Check size={14} color={swatchColor === '#FFFFFF' || swatchColor.toLowerCase() === '#fff' ? '#0F172A' : '#FFFFFF'} strokeWidth={3} />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
             {/* Quantity Selector & Quick Action Row */}
-            {product.stock !== 0 && (
+            {!isOutOfStock && (
               <div className="pd-qty-wish-row">
                 <div className="pd-quantity-box">
                   <button onClick={() => setQuantity(q => Math.max(1, q-1))} className="pd-qty-btn" title="Decrease">
                     <Minus size={13} color="#0F172A" />
                   </button>
                   <span className="pd-qty-val">{quantity}</span>
-                  <button onClick={() => setQuantity(q => product.stock ? Math.min(product.stock, q+1) : q+1)} className="pd-qty-btn" title="Increase">
+                  <button onClick={() => setQuantity(q => currentStock ? Math.min(currentStock, q+1) : q+1)} className="pd-qty-btn" title="Increase">
                     <Plus size={13} color="#0F172A" />
                   </button>
                 </div>
@@ -676,7 +893,7 @@ export default function ProductDetail() {
 
             {/* High-Impact Action Buttons */}
             <div className="pd-cta-buttons-container">
-              {product.stock !== 0 ? (
+              {!isOutOfStock ? (
                 <>
                   <motion.button onClick={handleAddToCart}
                     whileHover={{ scale: 1.01 }} whileTap={{ scale: .99 }}
@@ -695,7 +912,7 @@ export default function ProductDetail() {
                   </motion.button>
                 </>
               ) : (
-                <div className="pd-out-of-stock-box">
+                <div className="pd-out-of-stock-box" style={{ width: '100%', padding: '14px', borderRadius: '14px', background: '#F1F5F9', border: '1.5px solid #CBD5E1', textAlign: 'center', fontWeight: 800, color: '#64748B', fontSize: '14px' }}>
                   Currently Out of Stock
                 </div>
               )}
@@ -849,7 +1066,7 @@ export default function ProductDetail() {
                 </div>
                 {descOpen && (
                   <div className="pd-accordion-body">
-                    <p className="pd-description-text">{cleanDesc}</p>
+                    <ProductDescription description={cleanDesc} />
                   </div>
                 )}
               </div>
@@ -1361,7 +1578,7 @@ export default function ProductDetail() {
 
         <button
           onClick={handleAddToCart}
-          disabled={product.stock === 0}
+          disabled={isOutOfStock}
           style={{
             flex: 1,
             maxWidth: '240px',
@@ -1369,15 +1586,15 @@ export default function ProductDetail() {
             borderRadius: '12px',
             background: added
               ? 'linear-gradient(135deg, #10B981, #059669)'
-              : product.stock === 0
+              : isOutOfStock
                 ? '#E2E8F0'
                 : 'linear-gradient(135deg, #0F172A, #1E293B)',
-            color: product.stock === 0 ? '#94A3B8' : '#FFFFFF',
+            color: isOutOfStock ? '#94A3B8' : '#FFFFFF',
             fontSize: '13px',
             fontWeight: 800,
             letterSpacing: '0.5px',
             border: 'none',
-            cursor: product.stock === 0 ? 'not-allowed' : 'pointer',
+            cursor: isOutOfStock ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1975,6 +2192,50 @@ export default function ProductDetail() {
           white-space: nowrap;
           min-width: 0;
           display: block;
+        }
+
+        /* ── DESCRIPTION & ACCORDION STYLES ── */
+        .pd-accordion-card {
+          border: 1px solid #E2E8F0;
+          border-radius: 12px;
+          background: #FFFFFF;
+          overflow: hidden;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .pd-accordion-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 14px;
+          background: #F8FAFC;
+          cursor: pointer;
+          font-size: 13.5px;
+          font-weight: 800;
+          color: #0F172A;
+          user-select: none;
+        }
+        .pd-accordion-icon {
+          font-size: 18px;
+          font-weight: 700;
+          color: #64748B;
+        }
+        .pd-accordion-body {
+          padding: 16px 14px;
+          border-top: 1px solid #F1F5F9;
+          background: #FFFFFF;
+          box-sizing: border-box;
+          width: 100%;
+        }
+        .pd-description-text {
+          white-space: pre-line;
+          word-break: break-word;
+          overflow-wrap: break-word;
+          font-size: 13.5px;
+          line-height: 1.7;
+          color: #334155;
+          margin: 0;
+          font-family: inherit;
         }
 
         /* ── MATERIALISM BUY MORE SAVE MORE STYLES ── */

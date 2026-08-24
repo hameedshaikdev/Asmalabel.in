@@ -13,6 +13,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { supabase } from '../config/supabase';
 import { useApp } from '../context/AppContext';
 import { getProductImage, parseProductTags } from '../utils/productImages';
+import { getColorName, getColorSwatch, PRESET_COLORS } from '../utils/colorUtils';
 import {
   ToastContainer, ConfirmDialog, CommandPalette,
   OrderSkeleton, ProductSkeleton, EmptyState,
@@ -99,6 +100,8 @@ function ProductModal({ product, onClose, onSave }) {
     badge: parsed.badge||'',
     discount_tag: parsed.discount_tag||'',
     colors: parsed.colors || product?.colors || [],
+    variants_enabled: Boolean(product?.variants && Array.isArray(product.variants) && product.variants.length > 0),
+    variants: Array.isArray(product?.variants) ? product.variants : [],
     bundle_enabled: parsed.bundle?.enabled ?? true,
     bundle_companions: parsed.bundle?.companionIds?.length ? parsed.bundle.companionIds : (parsed.bundle?.companionId ? [parsed.bundle.companionId] : []),
     bundle_discount: parsed.bundle?.discountPct ?? 5,
@@ -121,6 +124,7 @@ function ProductModal({ product, onClose, onSave }) {
   const [newVT, setNewVT] = useState(''); const [newVU, setNewVU] = useState('');
   const [newImgUrl, setNewImgUrl] = useState('');
   const [newColorHex, setNewColorHex] = useState('#0F172A');
+  const [varUrlInputs, setVarUrlInputs] = useState({});
 
   useEffect(() => {
     (async () => {
@@ -160,6 +164,126 @@ function ProductModal({ product, onClose, onSave }) {
     setForm(p => ({...p, image_url: url}));
   }
 
+  /* ── Variant Action Handlers ── */
+  function handleAddVariant() {
+    const newVar = {
+      id: `var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      size: '',
+      color: '',
+      color_value: '#0F172A',
+      price: form.price ? parseFloat(form.price) : 0,
+      original_price: form.original_price ? parseFloat(form.original_price) : null,
+      stock: form.stock !== '' && form.stock !== null ? parseInt(form.stock) : 10,
+      sku: '',
+      images: [],
+      is_default: (form.variants || []).length === 0,
+    };
+    setForm(p => ({
+      ...p,
+      variants_enabled: true,
+      variants: [...(p.variants || []), newVar]
+    }));
+  }
+
+  function handleUpdateVariant(index, field, value) {
+    setForm(p => ({
+      ...p,
+      variants: (p.variants || []).map((v, i) => {
+        if (i !== index) return v;
+        const updated = { ...v, [field]: value };
+        // If updating color name, auto-sync swatch if matching preset
+        if (field === 'color') {
+          const swatch = getColorSwatch(value);
+          if (swatch) updated.color_value = swatch;
+        }
+        return updated;
+      })
+    }));
+  }
+
+  function handleCloneVariant(index) {
+    const src = form.variants[index];
+    const cloned = {
+      ...src,
+      id: `var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      sku: src.sku ? `${src.sku}-copy` : '',
+      is_default: false,
+    };
+    setForm(p => ({
+      ...p,
+      variants: [...p.variants.slice(0, index + 1), cloned, ...p.variants.slice(index + 1)]
+    }));
+    toast('Variant cloned!', 'success');
+  }
+
+  function handleDeleteVariant(index) {
+    setForm(p => {
+      const remaining = p.variants.filter((_, i) => i !== index);
+      if (remaining.length > 0 && !remaining.some(v => v.is_default)) {
+        remaining[0].is_default = true;
+      }
+      return {
+        ...p,
+        variants: remaining,
+        variants_enabled: remaining.length > 0 ? p.variants_enabled : false
+      };
+    });
+  }
+
+  async function handleVariantUploadImage(varIdx, e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await upload(file);
+      setForm(p => ({
+        ...p,
+        variants: (p.variants || []).map((v, i) => i === varIdx ? { ...v, images: [...(v.images || []), url] } : v)
+      }));
+      toast('Variant image uploaded!', 'success');
+    } catch (err) {
+      toast('Upload failed: ' + err.message, 'error');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleVariantAddImageUrl(varIdx) {
+    const url = varUrlInputs[varIdx];
+    if (!url || !url.trim()) return;
+    setForm(p => ({
+      ...p,
+      variants: (p.variants || []).map((v, i) => i === varIdx ? { ...v, images: [...(v.images || []), url.trim()] } : v)
+    }));
+    setVarUrlInputs(p => ({ ...p, [varIdx]: '' }));
+  }
+
+  function handleVariantRemoveImage(varIdx, imgIdx) {
+    setForm(p => ({
+      ...p,
+      variants: (p.variants || []).map((v, i) => i === varIdx ? { ...v, images: (v.images || []).filter((_, idx) => idx !== imgIdx) } : v)
+    }));
+  }
+
+  function handleVariantSetCoverImage(varIdx, imgIdx) {
+    setForm(p => ({
+      ...p,
+      variants: (p.variants || []).map((v, i) => {
+        if (i !== varIdx) return v;
+        const list = [...(v.images || [])];
+        const [picked] = list.splice(imgIdx, 1);
+        return { ...v, images: [picked, ...list] };
+      })
+    }));
+  }
+
+  function handleSetDefaultVariant(index) {
+    setForm(p => ({
+      ...p,
+      variants: (p.variants || []).map((v, i) => ({ ...v, is_default: i === index }))
+    }));
+  }
+
   async function handleSubmit(e) {
     e.preventDefault(); if (!form.name||!form.price){alert('Name and price required');return;}
     setSaving(true);
@@ -179,6 +303,28 @@ function ProductModal({ product, onClose, onSave }) {
       ].join('|');
       finalDesc = finalDesc ? `${finalDesc} [BUNDLE:${bundleStr}]` : `[BUNDLE:${bundleStr}]`;
 
+      // Variant Validation
+      if (form.variants_enabled && form.variants && form.variants.length > 0) {
+        const seen = new Set();
+        for (let i = 0; i < form.variants.length; i++) {
+          const v = form.variants[i];
+          const sz = (v.size || '').trim();
+          const clr = (v.color || '').trim();
+          if (!sz && !clr) {
+            alert(`Variant #${i + 1} must have a Size or a Color.`);
+            setSaving(false);
+            return;
+          }
+          const combo = `${sz.toLowerCase()}__${clr.toLowerCase()}`;
+          if (seen.has(combo)) {
+            alert(`Duplicate variant combination detected: "${sz || 'No size'}" + "${clr || 'No color'}". Every variant must be unique.`);
+            setSaving(false);
+            return;
+          }
+          seen.add(combo);
+        }
+      }
+
       const rawPayload = {
         name: form.name.trim(),
         description: finalDesc,
@@ -191,6 +337,7 @@ function ProductModal({ product, onClose, onSave }) {
         image_url: form.image_url || null,
         images: form.images || [],
         video_links: form.video_links || [],
+        variants: form.variants_enabled && form.variants ? form.variants : [],
         active: form.active ?? true,
       };
 
@@ -515,6 +662,367 @@ function ProductModal({ product, onClose, onSave }) {
               </div>
             )}
           </div>
+
+          {/* ══════════════════════════════════════════════════════════
+              PRODUCT VARIANTS SECTION (Sizes, Colors, SKUs, Stocks, Images)
+              ══════════════════════════════════════════════════════════ */}
+          <div style={{
+            background: form.variants_enabled ? '#F8FAFC' : '#FFFFFF',
+            padding: '16px',
+            borderRadius: '16px',
+            border: form.variants_enabled ? '1.5px solid #0F172A' : '1.5px solid #E2E8F0',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+            transition: 'all 0.2s ease'
+          }}>
+            {/* Header with Enable Switch */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '13.5px', fontWeight: 900, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '.5px' }}>
+                    📦 Product Variants
+                  </span>
+                  {form.variants_enabled && (
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#FFFFFF', background: '#0F172A', padding: '2px 8px', borderRadius: '6px' }}>
+                      {form.variants?.length || 0} {form.variants?.length === 1 ? 'Variant' : 'Variants'}
+                    </span>
+                  )}
+                </div>
+                <p style={{ fontSize: '11.5px', color: '#64748B', margin: '2px 0 0', fontWeight: 500 }}>
+                  Enable different sizes, colors, prices, and variant-specific photo galleries.
+                </p>
+              </div>
+
+              <label style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                background: form.variants_enabled ? '#0F172A' : '#F1F5F9',
+                color: form.variants_enabled ? '#FFFFFF' : '#475569',
+                padding: '6px 14px',
+                borderRadius: '999px',
+                fontSize: '12px',
+                fontWeight: 800,
+                transition: 'all 0.2s ease',
+                userSelect: 'none'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={form.variants_enabled}
+                  onChange={e => {
+                    const checked = e.target.checked;
+                    if (checked && (!form.variants || form.variants.length === 0)) {
+                      handleAddVariant();
+                    } else {
+                      setForm(p => ({ ...p, variants_enabled: checked }));
+                    }
+                  }}
+                  style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#30D158' }}
+                />
+                <span>{form.variants_enabled ? 'Variants Enabled ✓' : 'Enable Variants'}</span>
+              </label>
+            </div>
+
+            {/* Variant List Body */}
+            {form.variants_enabled && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '10px', borderTop: '1px solid #E2E8F0' }}>
+                {(form.variants || []).map((v, vIdx) => (
+                  <div key={v.id || vIdx} style={{
+                    background: '#FFFFFF',
+                    borderRadius: '14px',
+                    border: v.is_default ? '2px solid #0F172A' : '1px solid #CBD5E1',
+                    padding: '14px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}>
+                    {/* Variant Card Header: Default Badge & Actions */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 800, color: v.is_default ? '#0F172A' : '#64748B' }}>
+                        <input
+                          type="radio"
+                          name="default_variant"
+                          checked={!!v.is_default}
+                          onChange={() => handleSetDefaultVariant(vIdx)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <span>{v.is_default ? '★ Default / Cover Variant' : 'Set as Default'}</span>
+                      </label>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleCloneVariant(vIdx)}
+                          title="Duplicate / Clone Variant"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '4px 10px',
+                            borderRadius: '8px',
+                            background: '#F1F5F9',
+                            border: '1px solid #E2E8F0',
+                            color: '#0F172A',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Copy size={11} /> Clone
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteVariant(vIdx)}
+                          title="Delete Variant"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '4px 10px',
+                            borderRadius: '8px',
+                            background: '#FEF2F2',
+                            border: '1px solid #FEE2E2',
+                            color: '#EF4444',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Trash2 size={11} /> Remove
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Row 1: Size & Color Inputs */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                          Size (e.g. 11 Inch, S, M, XL)
+                        </label>
+                        <input
+                          placeholder="e.g. 11 Inch"
+                          value={v.size || ''}
+                          onChange={e => handleUpdateVariant(vIdx, 'size', e.target.value)}
+                          style={S}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                          Color Name (e.g. Red, Black, Gold)
+                        </label>
+                        <input
+                          placeholder="e.g. Red"
+                          value={v.color || ''}
+                          onChange={e => handleUpdateVariant(vIdx, 'color', e.target.value)}
+                          style={S}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Color Swatch Picker & Preset Colors */}
+                    <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>Color Swatch / Value:</span>
+                        <input
+                          type="color"
+                          value={v.color_value || '#0F172A'}
+                          onChange={e => handleUpdateVariant(vIdx, 'color_value', e.target.value)}
+                          style={{ width: '28px', height: '28px', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', padding: '1px', background: 'white' }}
+                        />
+                        <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#64748B' }}>
+                          {v.color_value || '#0F172A'}
+                        </span>
+                      </div>
+
+                      {/* Quick Preset Color Pills */}
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 700 }}>Presets:</span>
+                        {PRESET_COLORS.slice(0, 10).map(pc => (
+                          <button
+                            key={pc.name}
+                            type="button"
+                            onClick={() => {
+                              handleUpdateVariant(vIdx, 'color', pc.name);
+                              handleUpdateVariant(vIdx, 'color_value', pc.hex);
+                            }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              padding: '2px 6px',
+                              borderRadius: '6px',
+                              background: '#FFFFFF',
+                              border: '1px solid #E2E8F0',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              color: '#0F172A',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: pc.hex, border: '1px solid rgba(0,0,0,0.1)' }} />
+                            {pc.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Row 2: Price, MRP, Stock, SKU */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                          Selling Price (₹) *
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="e.g. 1999"
+                          value={v.price !== undefined && v.price !== null ? v.price : ''}
+                          onChange={e => handleUpdateVariant(vIdx, 'price', e.target.value)}
+                          style={S}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                          MRP (₹)
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="e.g. 2999"
+                          value={v.original_price !== undefined && v.original_price !== null ? v.original_price : ''}
+                          onChange={e => handleUpdateVariant(vIdx, 'original_price', e.target.value)}
+                          style={S}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                          Stock Units
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="e.g. 10"
+                          value={v.stock !== undefined && v.stock !== null ? v.stock : ''}
+                          onChange={e => handleUpdateVariant(vIdx, 'stock', e.target.value)}
+                          style={S}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                          SKU (Optional)
+                        </label>
+                        <input
+                          placeholder="e.g. JUP-11-RED"
+                          value={v.sku || ''}
+                          onChange={e => handleUpdateVariant(vIdx, 'sku', e.target.value)}
+                          style={S}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Row 3: Variant-Specific Images Manager */}
+                    <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 800, color: '#0F172A', display: 'block', marginBottom: '6px' }}>
+                        📷 Variant-Specific Images ({v.images?.length || 0})
+                      </label>
+                      <p style={{ fontSize: '10.5px', color: '#64748B', margin: '0 0 8px', lineHeight: 1.4 }}>
+                        Upload or add photos specific to this size/color. If none added, it cleanly falls back to the product's main common gallery.
+                      </p>
+
+                      {/* Variant Thumbnails */}
+                      {v.images?.length > 0 && (
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                          {v.images.map((img, imgIdx) => (
+                            <div key={imgIdx} style={{ position: 'relative', width: '56px', height: '56px', borderRadius: '8px', overflow: 'hidden', border: imgIdx === 0 ? '2px solid #0F172A' : '1px solid #CBD5E1' }}>
+                              <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              {imgIdx === 0 && (
+                                <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(15,23,42,0.85)', color: 'white', fontSize: '8px', fontWeight: 800, textAlign: 'center', padding: '1px 0' }}>
+                                  COVER
+                                </span>
+                              )}
+                              <div style={{ position: 'absolute', top: 2, right: 2, display: 'flex', gap: '2px' }}>
+                                {imgIdx !== 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleVariantSetCoverImage(vIdx, imgIdx)}
+                                    title="Make Cover Image"
+                                    style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#0F172A', color: 'white', border: 'none', cursor: 'pointer', fontSize: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                  >
+                                    ★
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleVariantRemoveImage(vIdx, imgIdx)}
+                                  title="Delete photo"
+                                  style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#EF4444', color: 'white', border: 'none', cursor: 'pointer', fontSize: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Image Upload & URL Inputs */}
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        <label style={{ padding: '6px 12px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #CBD5E1', fontSize: '11px', fontWeight: 700, color: '#0F172A', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <Upload size={12} /> {uploading ? 'Uploading...' : 'Upload Image'}
+                          <input type="file" accept="image/*" onChange={e => handleVariantUploadImage(vIdx, e)} style={{ display: 'none' }} />
+                        </label>
+
+                        <div style={{ display: 'flex', gap: '4px', flex: 1, minWidth: '160px' }}>
+                          <input
+                            placeholder="or paste image URL..."
+                            value={varUrlInputs[vIdx] || ''}
+                            onChange={e => setVarUrlInputs(p => ({ ...p, [vIdx]: e.target.value }))}
+                            style={{ ...S, padding: '5px 8px', fontSize: '11.5px', background: '#FFFFFF' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleVariantAddImageUrl(vIdx)}
+                            style={{ padding: '5px 10px', borderRadius: '8px', background: '#0F172A', color: 'white', fontWeight: 800, fontSize: '11px', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          >
+                            + Add URL
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                ))}
+
+                {/* + Add Variant Button */}
+                <button
+                  type="button"
+                  onClick={handleAddVariant}
+                  style={{
+                    padding: '12px',
+                    borderRadius: '12px',
+                    background: '#FFFFFF',
+                    border: '1.5px dashed #0F172A',
+                    color: '#0F172A',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <Plus size={16} /> + Add Another Variant (Size / Color)
+                </button>
+              </div>
+            )}
+          </div>
           {/* Video links */}
           <div>
             <p style={{fontSize:'11px',fontWeight:700,color:'#8E8E93',marginBottom:'6px',textTransform:'uppercase',letterSpacing:'.5px'}}>Video Links</p>
@@ -836,7 +1344,24 @@ function OrderCard({ order, onConfirm, onReject, onStatus, onDelete, confirming,
                     <p style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {item.name}
                     </p>
-                    {item.unit && (
+                    {(item.size || item.color) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px', flexWrap: 'wrap' }}>
+                        {item.size && (
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: '#0F172A', background: '#E2E8F0', padding: '1px 5px', borderRadius: '4px' }}>
+                            Size: {item.size}
+                          </span>
+                        )}
+                        {item.color && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px', fontWeight: 700, color: '#0F172A', background: '#E2E8F0', padding: '1px 5px', borderRadius: '4px' }}>
+                            {item.color_value && (
+                              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: item.color_value, border: '1px solid rgba(0,0,0,0.2)' }} />
+                            )}
+                            Color: {item.color}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {item.unit && !item.size && (
                       <p style={{ fontSize: '11px', color: '#64748B', margin: '2px 0 0', fontWeight: 500 }}>
                         {item.unit}
                       </p>

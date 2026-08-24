@@ -1491,9 +1491,20 @@ div[style*="overflow"]::-webkit-scrollbar {
   color: #64748B;
 }
 .pd-accordion-body {
-  padding: 14px;
+  padding: 16px 14px;
   border-top: 1px solid #F1F5F9;
+  background: #FFFFFF;
 }
+.pd-description-text {
+  white-space: pre-line;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: #334155;
+  margin: 0;
+}
+
 
 /* Social Share Wrap (Image 3 & 4) */
 .pd-social-share-wrap {

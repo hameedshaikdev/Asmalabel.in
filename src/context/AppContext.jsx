@@ -80,22 +80,60 @@ export function AppProvider({ children }) {
   }, []);
 
   // Cart
-  const addToCart = (product, quantity = 1) => {
+  const addToCart = (product, quantity = 1, selectedVariant = null) => {
+    if (!product) return;
+    const variant = selectedVariant || product.selectedVariant || null;
+    const variantId = variant?.id || product.selected_variant_id || null;
+    const cartItemId = variantId ? `${product.id}_${variantId}` : String(product.id);
+
+    const price = (variant?.price !== undefined && variant?.price !== null && variant?.price !== '')
+      ? Number(variant.price)
+      : Number(product.price || 0);
+
+    const original_price = (variant?.original_price !== undefined && variant?.original_price !== null && variant?.original_price !== '')
+      ? Number(variant.original_price)
+      : (product.original_price ? Number(product.original_price) : null);
+
+    const image_url = (variant?.images && variant.images.length > 0)
+      ? variant.images[0]
+      : (product.image_url || (Array.isArray(product.images) && product.images[0]) || null);
+
+    const itemPayload = {
+      ...product,
+      id: cartItemId,
+      product_id: product.id,
+      variant_id: variantId,
+      size: variant?.size || product.selected_size || null,
+      color: variant?.color || product.selected_color || null,
+      color_value: variant?.color_value || product.selected_color_value || null,
+      sku: variant?.sku || product.sku || null,
+      price,
+      original_price,
+      image_url,
+      stock: (variant?.stock !== undefined && variant?.stock !== null && variant?.stock !== '')
+        ? Number(variant.stock)
+        : product.stock,
+    };
+
     setCart(prev => {
-      const found = prev.find(i => i.id === product.id);
-      if (found) return prev.map(i => i.id === product.id ? { ...i, quantity: i.quantity + quantity } : i);
-      return [...prev, { ...product, quantity }];
+      const foundIndex = prev.findIndex(i => i.id === cartItemId);
+      if (foundIndex >= 0) {
+        return prev.map((i, idx) => idx === foundIndex ? { ...i, quantity: i.quantity + quantity } : i);
+      }
+      return [...prev, { ...itemPayload, quantity }];
     });
-    showToast('Added to Cart', product, 'cart');
+
+    showToast('Added to Cart', itemPayload, 'cart');
   };
+
   const removeFromCart     = (id) => setCart(prev => prev.filter(i => i.id !== id));
   const clearCart          = ()   => setCart([]);
   const updateCartQuantity = (id, qty) => {
     if (qty <= 0) { removeFromCart(id); return; }
     setCart(prev => prev.map(i => i.id === id ? { ...i, quantity: qty } : i));
   };
-  const getCartTotal = () => cart.reduce((t, i) => t + i.price * i.quantity, 0);
-  const getCartCount = () => cart.reduce((t, i) => t + i.quantity, 0);
+  const getCartTotal = () => cart.reduce((t, i) => t + Number(i.price || 0) * Number(i.quantity || 1), 0);
+  const getCartCount = () => cart.reduce((t, i) => t + Number(i.quantity || 1), 0);
 
   // Wishlist
   const addToWishlist = (p) => {

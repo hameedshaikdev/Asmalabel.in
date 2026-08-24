@@ -449,8 +449,16 @@ export default function Checkout() {
           address_tag: addressTag || 'Home',
         },
         items: cart.map(i => ({
-          product_id: i.id, name: i.name,
-          quantity:   i.quantity, price: i.price, image_url: i.image_url,
+          product_id:  i.product_id || i.id,
+          variant_id:  i.variant_id || null,
+          size:        i.size || null,
+          color:       i.color || null,
+          color_value: i.color_value || null,
+          sku:         i.sku || null,
+          name:        i.name,
+          quantity:    i.quantity,
+          price:       i.price,
+          image_url:   i.image_url || getProductImage(i),
         }))
       }]).select().single();
 
@@ -1301,7 +1309,12 @@ export default function Checkout() {
               {order.items.map((item, i) => (
                 <div key={i} style={{ display:'flex', justifyContent:'space-between', fontSize:'13px', marginBottom:'6px' }}>
                   <span style={{ color:'#475569', fontWeight:600 }}>
-                    {item.name} ×{item.quantity}
+                    {item.name}
+                    {(item.size || item.color) && (
+                      <span style={{ fontSize:'11.5px', color:'#0F172A', fontWeight:700, marginLeft:'4px' }}>
+                        ({[item.size ? `Size: ${item.size}` : '', item.color ? `Color: ${item.color}` : ''].filter(Boolean).join(', ')})
+                      </span>
+                    )} ×{item.quantity}
                   </span>
                   <span style={{ fontWeight:800, color:'#0F172A' }}>
                     ₹{(Number(item.price || 0) * Number(item.quantity || 1)).toFixed(0)}
