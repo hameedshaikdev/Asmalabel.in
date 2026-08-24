@@ -942,7 +942,7 @@ function ProductModal({ product, onClose, onSave }) {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <div>
                         <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
-                          Size (e.g. 11 Inch, S, M, XL)
+                          Size (e.g. 11 Inch, XL)
                         </label>
                         <input
                           placeholder="e.g. 11 Inch"
@@ -954,36 +954,45 @@ function ProductModal({ product, onClose, onSave }) {
 
                       <div>
                         <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
-                          Color Name (e.g. Red, Black, Gold)
+                          Color Name (e.g. Red, Black)
                         </label>
-                        <input
-                          placeholder="e.g. Red"
-                          value={v.color || ''}
-                          onChange={e => handleUpdateVariant(vIdx, 'color', e.target.value)}
-                          style={S}
-                        />
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <input
+                            type="color"
+                            value={v.color_value || '#0F172A'}
+                            onChange={e => {
+                              handleUpdateVariant(vIdx, 'color_value', e.target.value);
+                              if (!v.color) handleUpdateVariant(vIdx, 'color', getColorName(e.target.value));
+                            }}
+                            title="Color Swatch"
+                            style={{
+                              width: '36px',
+                              height: '36px',
+                              border: '1px solid #CBD5E1',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              padding: '2px',
+                              background: '#FFFFFF',
+                              flexShrink: 0,
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                          <input
+                            placeholder="e.g. Crimson Red"
+                            value={v.color || ''}
+                            onChange={e => handleUpdateVariant(vIdx, 'color', e.target.value)}
+                            style={{ ...S, flex: 1, minWidth: 0 }}
+                          />
+                        </div>
                       </div>
                     </div>
 
-                    {/* Color Swatch Picker & Preset Colors */}
-                    <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>Color Swatch / Value:</span>
-                        <input
-                          type="color"
-                          value={v.color_value || '#0F172A'}
-                          onChange={e => handleUpdateVariant(vIdx, 'color_value', e.target.value)}
-                          style={{ width: '28px', height: '28px', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', padding: '1px', background: 'white' }}
-                        />
-                        <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#64748B' }}>
-                          {v.color_value || '#0F172A'}
-                        </span>
-                      </div>
-
-                      {/* Quick Preset Color Pills */}
-                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <span style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 700 }}>Presets:</span>
-                        {PRESET_COLORS.slice(0, 10).map(pc => (
+                    {/* Quick Color Presets as a clean compact row */}
+                    <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span style={{ fontSize: '10.5px', color: '#94A3B8', fontWeight: 700 }}>Presets:</span>
+                      {PRESET_COLORS.slice(0, 10).map(pc => {
+                        const isChosen = v.color === pc.name || v.color_value === pc.hex;
+                        return (
                           <button
                             key={pc.name}
                             type="button"
@@ -994,22 +1003,32 @@ function ProductModal({ product, onClose, onSave }) {
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '3px',
-                              padding: '2px 6px',
+                              gap: '4px',
+                              padding: '3px 7px',
                               borderRadius: '6px',
-                              background: '#FFFFFF',
-                              border: '1px solid #E2E8F0',
-                              fontSize: '10px',
+                              background: isChosen ? '#0F172A' : '#FFFFFF',
+                              color: isChosen ? '#FFFFFF' : '#334155',
+                              border: isChosen ? '1px solid #0F172A' : '1px solid #E2E8F0',
+                              fontSize: '10.5px',
                               fontWeight: 700,
-                              color: '#0F172A',
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
                             }}
                           >
-                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: pc.hex, border: '1px solid rgba(0,0,0,0.1)' }} />
+                            <span
+                              style={{
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                background: pc.hex,
+                                border: isChosen ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(0,0,0,0.15)',
+                                flexShrink: 0
+                              }}
+                            />
                             {pc.name}
                           </button>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
 
                     {/* Row 2: Price, MRP, Stock, SKU */}
