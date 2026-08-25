@@ -5,10 +5,11 @@ import { Heart, ShoppingCart, Star, Eye, Plus } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { getProductImage, parseProductTags } from '../../utils/productImages';
 
-function ProductCardComponent({ product, onQuickView }) {
+function ProductCardComponent({ product, onQuickView, priority = false }) {
   const { addToCart, addToWishlist, removeFromWishlist, isInWishlist } = useApp();
-  const [added,    setAdded]    = useState(false);
+  const [added, setAdded] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   if (!product) return null;
 
@@ -40,23 +41,23 @@ function ProductCardComponent({ product, onQuickView }) {
   };
 
   const imageUrl = imgError
-    ? 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80'
+    ? 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=1200&auto=format&fit=crop&q=85'
     : getProductImage(product);
 
   return (
     <Link to={`/product/${product.id}`} style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', height: '100%', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
       <motion.div
         whileHover={{
-          y: -6,
-          boxShadow: '0 20px 40px -10px rgba(15, 23, 42, 0.12), 0 0 20px rgba(255, 255, 255, 0.6)',
+          y: -5,
+          boxShadow: '0 16px 32px -10px rgba(15, 23, 42, 0.12)',
           borderColor: '#CBD5E1'
         }}
-        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
         style={{
           background: '#ffffff',
           borderRadius: '14px',
           overflow: 'hidden',
-          boxShadow: '0 4px 16px rgba(15, 23, 42, 0.06)',
+          boxShadow: '0 2px 10px rgba(15, 23, 42, 0.05)',
           border: '1px solid #E2E8F0',
           cursor: 'pointer',
           position: 'relative',
@@ -66,20 +67,45 @@ function ProductCardComponent({ product, onQuickView }) {
           width: '100%',
           minWidth: 0,
           boxSizing: 'border-box',
-          transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+          transform: 'translateZ(0)',
+          contain: 'content',
         }}>
 
-        {/* Image area with embedded rating pill (Flipkart style) */}
+        {/* Image area with progressive shimmer loading & embedded rating pill */}
         <div style={{ position: 'relative', width: '100%', aspectRatio: '1.02', overflow: 'hidden', background: '#F8FAFC', flexShrink: 0 }}>
+          {/* Shimmer skeleton placeholder while image loads */}
+          {!imgLoaded && !imgError && (
+            <div
+              className="sh-img-shimmer"
+              style={{
+                position: 'absolute', inset: 0,
+                background: 'linear-gradient(90deg, #F1F5F9 0%, #E2E8F0 50%, #F1F5F9 100%)',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 1.5s infinite',
+                zIndex: 1
+              }}
+            />
+          )}
+
           <motion.img
             src={imageUrl}
             alt={product.name || 'Product'}
-            loading="lazy"
-            decoding="async"
-            onError={() => setImgError(true)}
-            whileHover={{ scale: 1.05 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#FAF8FC', display: 'block' }}
+            loading={priority ? 'eager' : 'lazy'}
+            decoding={priority ? 'sync' : 'async'}
+            fetchpriority={priority ? 'high' : 'low'}
+            onLoad={() => setImgLoaded(true)}
+            onError={() => { setImgError(true); setImgLoaded(true); }}
+            whileHover={{ scale: 1.04 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              background: '#FAF8FC',
+              display: 'block',
+              opacity: imgLoaded ? 1 : 0,
+              transition: 'opacity 0.25s ease-in-out',
+            }}
           />
 
           {/* Top-Left Badge (SALE, NEW, etc.) */}

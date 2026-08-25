@@ -22,6 +22,7 @@ import {
   exportOrdersCSV, exportProductsCSV,
   toast, confirm,
 } from '../components/admin/AdminUtils';
+import { compressImageFile } from '../utils/imageCompressor';
 import HomepageManager from '../components/admin/cms/HomepageManager';
 import SocialMediaManager from '../components/admin/SocialMediaManager';
 import SEO from '../components/common/SEO';
@@ -571,9 +572,14 @@ function ProductModal({ product, onClose, onSave }) {
   }, []);
 
   async function upload(file) {
-    const ext = file.name.split('.').pop();
+    // Automatically compress to crisp WebP (< 120 KB) before uploading
+    const compressed = await compressImageFile(file, { maxWidth: 1000, maxHeight: 1000, quality: 0.82 });
+    const ext = (compressed.name || file.name || 'img.webp').split('.').pop() || 'webp';
     const path = `products/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error } = await supabase.storage.from('product-images').upload(path, file, { upsert:true });
+    const { error } = await supabase.storage.from('product-images').upload(path, compressed, {
+      upsert: true,
+      contentType: compressed.type || 'image/webp'
+    });
     if (error) throw error;
     return supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
   }

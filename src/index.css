@@ -13,6 +13,35 @@ a    { text-decoration:none; color:inherit; }
 button { border:none; outline:none; cursor:pointer; font-family:inherit; }
 input, textarea, select { outline:none; border:none; font-family:inherit; background:none; }
 
+/* ── Flipkart / Amazon Style Progressive Image Shimmer ── */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.sh-img-shimmer {
+  background: linear-gradient(90deg, #F1F5F9 0%, #E2E8F0 50%, #F1F5F9 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+/* ── Hardware Acceleration & Smooth 60fps Scrolling ── */
+.sh-grid-products {
+  content-visibility: auto;
+  contain-intrinsic-size: 320px;
+}
+
+.sh-trust-strip,
+.sh-sort-row,
+.carousel-track {
+  -webkit-overflow-scrolling: touch;
+  transform: translateZ(0);
+}
+
 /* ── Anti-Gravity Design Tokens ── */
 :root {
   /* ── Palette ── */

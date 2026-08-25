@@ -787,13 +787,24 @@ export default function Home() {
   }, [activeCms]);
 
   const [allCategoryProducts, setAllCategoryProducts] = useState([]);
+  const productsCache = useRef({});
+  const featuredCache = useRef({});
 
   useEffect(() => { setSub('all'); }, [activeCategory]);
 
-  // Fetch all active products for the current active category
+  // Fetch all active products for the current active category with SWR Instant Caching
   useEffect(() => {
-    (async () => {
+    let isCancelled = false;
+
+    // 1. Instant Cache Hit (0ms delay)
+    if (productsCache.current[activeCategory]) {
+      setAllCategoryProducts(productsCache.current[activeCategory]);
+      setLoading(false);
+    } else {
       setLoading(true);
+    }
+
+    (async () => {
       try {
         const { data } = await supabase
           .from('products')
@@ -801,13 +812,39 @@ export default function Home() {
           .eq('category', activeCategory)
           .eq('active', true)
           .order('created_at', { ascending: false });
-        setAllCategoryProducts(data || []);
+
+        if (!isCancelled && data) {
+          productsCache.current[activeCategory] = data;
+          setAllCategoryProducts(data);
+        }
       } catch (e) {
         console.error('Error loading products for category:', e);
       } finally {
-        setLoading(false);
+        if (!isCancelled) setLoading(false);
       }
     })();
+
+    // Background prefetch the alternative category after initial paint
+    const prefetchTimer = setTimeout(() => {
+      const altCategory = activeCategory === 'tailoring' ? 'fashion' : 'tailoring';
+      if (!productsCache.current[altCategory]) {
+        supabase
+          .from('products')
+          .select('*')
+          .eq('category', altCategory)
+          .eq('active', true)
+          .order('created_at', { ascending: false })
+          .then(({ data }) => {
+            if (data) productsCache.current[altCategory] = data;
+          })
+          .catch(() => {});
+      }
+    }, 1200);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(prefetchTimer);
+    };
   }, [activeCategory]);
 
   // Compute dynamic subcategories: merged from CMS settings + defaults + any custom product subcategories
@@ -851,8 +888,17 @@ export default function Home() {
     return prodNorm === normSub || (p.sub_category || '').trim().toLowerCase() === sub.trim().toLowerCase();
   });
 
-  // Fetch featured sections according to CMS configuration
+  // Fetch featured sections according to CMS configuration with SWR cache
   useEffect(() => {
+    const cacheKey = `${activeCategory}_${JSON.stringify(activeCms?.flashDeals || {})}_${JSON.stringify(activeCms?.newArrivals || {})}`;
+    
+    if (featuredCache.current[cacheKey]) {
+      const cached = featuredCache.current[cacheKey];
+      setNewArrivals(cached.newArrivals || []);
+      setBestSellers(cached.bestSellers || []);
+      setFlashDeals(cached.flashDeals || []);
+    }
+
     (async () => {
       try {
         const cmsFlash = activeCms?.flashDeals || {};
@@ -882,9 +928,14 @@ export default function Home() {
 
         const [n, b, f] = await Promise.all([newQuery, picksQuery, flashQuery]);
 
-        setNewArrivals(n.data || []);
-        setBestSellers(b.data || []);
-        setFlashDeals((f.data || []).filter(p => cmsFlash.selectedProductIds?.length > 0 || Number(p.original_price) > Number(p.price)));
+        const nData = n.data || [];
+        const bData = b.data || [];
+        const fData = (f.data || []).filter(p => cmsFlash.selectedProductIds?.length > 0 || Number(p.original_price) > Number(p.price));
+
+        featuredCache.current[cacheKey] = { newArrivals: nData, bestSellers: bData, flashDeals: fData };
+        setNewArrivals(nData);
+        setBestSellers(bData);
+        setFlashDeals(fData);
       } catch(err) { console.error('Featured fetch error:', err); }
     })();
   }, [activeCategory, activeCms]);
@@ -1531,9 +1582,9 @@ export default function Home() {
                 if (sortBy === 'price-high') return b.price - a.price;
                 if (sortBy === 'rating') return (b.rating || 4.8) - (a.rating || 4.8);
                 return 0;
-              }).map(p => (
+              }).map((p, idx) => (
                 <motion.div key={p.id} variants={sc} style={{ height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
-                  <ProductCard product={p} onQuickView={setQuickViewProduct} />
+                  <ProductCard product={p} onQuickView={setQuickViewProduct} priority={idx < 6} />
                 </motion.div>
               ))}
             </div>

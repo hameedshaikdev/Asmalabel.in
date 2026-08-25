@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../config/supabase';
-import { getProductImage, parseProductTags } from '../utils/productImages';
+import { getProductImage, parseProductTags, getOptimizedImageUrl } from '../utils/productImages';
 import { getColorName, getColorSwatch } from '../utils/colorUtils';
 import ProductDescription from '../components/products/ProductDescription';
 import SEO from '../components/common/SEO';
@@ -678,9 +678,10 @@ export default function ProductDetail() {
                 onDragStart={(e) => e.preventDefault()}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.28, ease: 'easeOut' }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
                 style={{ userSelect: 'none', WebkitUserDrag: 'none' }}
-                onError={e => { e.target.src = 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80'; }}
+                fetchpriority="high"
+                onError={e => { e.target.src = 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=1200&auto=format&fit=crop&q=85'; }}
               />
 
               {/* Prev Arrow (desktop) */}
@@ -750,7 +751,13 @@ export default function ProductDetail() {
                 {allImages.map((img, i) => (
                   <button key={i} onClick={() => setSelImg(i)}
                     className={`pd-thumb-item ${selImg === i ? 'active' : 'inactive'}`}>
-                    <img src={img} alt={`view-${i}`} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                    <img
+                      src={img}
+                      alt={`view-${i}`}
+                      loading="lazy"
+                      decoding="async"
+                      style={{ width:'100%', height:'100%', objectFit:'cover' }}
+                    />
                   </button>
                 ))}
               </div>

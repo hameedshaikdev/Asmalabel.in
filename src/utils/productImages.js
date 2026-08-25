@@ -1,5 +1,3 @@
-import { supabase } from '../config/supabase';
-
 // Map of categories and subcategories to reliable Unsplash fallback images
 const FALLBACK_IMAGES = {
   tailoring: {
@@ -22,24 +20,59 @@ const FALLBACK_IMAGES = {
 };
 
 /**
- * Returns a guaranteed valid image URL for a product.
+ * Returns the 100% full-resolution, crystal-clear image URL.
+ * Preserves full original clarity without lossy downsampling or blurry compression.
+ */
+export function getOptimizedImageUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  const url = rawUrl.trim();
+  if (!url) return '';
+
+  // If URL has Supabase render transformation, restore to full-quality direct object URL
+  if (url.includes('.supabase.co/storage/v1/render/image/public/')) {
+    const directUrl = url.replace('/storage/v1/render/image/public/', '/storage/v1/object/public/');
+    return directUrl.split('?')[0];
+  }
+
+  // If Supabase Storage public object URL, return directly (100% crystal-clear)
+  if (url.includes('.supabase.co/storage/v1/object/public/')) {
+    return url.split('?')[0];
+  }
+
+  // For Unsplash fallback images, ensure high-resolution format
+  if (url.includes('images.unsplash.com')) {
+    const cleanUrl = url.split('?')[0];
+    return `${cleanUrl}?w=1200&auto=format&fit=crop&q=85`;
+  }
+
+  return url;
+}
+
+/**
+ * Returns a guaranteed valid, razor-sharp crystal-clear image URL for a product.
  * Checks:
  * 1. product.image_url
  * 2. product.images array (first element)
  * 3. Fallback based on category/subcategory
  */
 export function getProductImage(product) {
-  if (!product) return 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&auto=format&fit=crop&q=80';
-
-  if (product.image_url && typeof product.image_url === 'string' && product.image_url.trim() !== '') {
-    return product.image_url.trim();
+  if (!product) {
+    return getOptimizedImageUrl('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200&auto=format&fit=crop&q=85');
   }
 
-  if (Array.isArray(product.images) && product.images.length > 0) {
+  let rawUrl = '';
+
+  if (product.image_url && typeof product.image_url === 'string' && product.image_url.trim() !== '') {
+    rawUrl = product.image_url.trim();
+  } else if (Array.isArray(product.images) && product.images.length > 0) {
     const firstImg = product.images[0];
     if (firstImg && typeof firstImg === 'string' && firstImg.trim() !== '') {
-      return firstImg.trim();
+      rawUrl = firstImg.trim();
     }
+  }
+
+  if (rawUrl) {
+    return getOptimizedImageUrl(rawUrl);
   }
 
   const category = (product.category || 'tailoring').toLowerCase();
@@ -47,14 +80,16 @@ export function getProductImage(product) {
 
   if (FALLBACK_IMAGES[category]) {
     if (FALLBACK_IMAGES[category][subCategory]) {
-      return FALLBACK_IMAGES[category][subCategory];
+      return getOptimizedImageUrl(FALLBACK_IMAGES[category][subCategory]);
     }
-    return FALLBACK_IMAGES[category].default;
+    return getOptimizedImageUrl(FALLBACK_IMAGES[category].default);
   }
 
-  return product.category === 'tailoring'
-    ? 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&auto=format&fit=crop&q=80'
-    : 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80';
+  const fallback = product.category === 'tailoring'
+    ? 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200&auto=format&fit=crop&q=85'
+    : 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=1200&auto=format&fit=crop&q=85';
+
+  return getOptimizedImageUrl(fallback);
 }
 
 function safeDecodeJSON(encodedStr, defaultValue = []) {
