@@ -13,9 +13,17 @@ export default function QuickViewModal({ product, onClose }) {
   const [imgError, setImgError] = useState(false);
   const [added, setAdded] = useState(false);
 
+  const parsedTags = useMemo(() => parseProductTags(product || {}), [product]);
+  const { cleanDesc, discount_tag, colors: parsedColors, variants: parsedVariants, images: parsedImages } = parsedTags;
+
   // Variant State
-  const hasVariants = Boolean(product?.variants && Array.isArray(product.variants) && product.variants.length > 0);
-  const variants = useMemo(() => (hasVariants ? product.variants : []), [hasVariants, product]);
+  const productVariants = useMemo(() => {
+    if (product?.variants && Array.isArray(product.variants) && product.variants.length > 0) return product.variants;
+    if (parsedVariants && Array.isArray(parsedVariants) && parsedVariants.length > 0) return parsedVariants;
+    return [];
+  }, [product, parsedVariants]);
+  const hasVariants = productVariants.length > 0;
+  const variants = productVariants;
 
   const availableSizes = useMemo(() => {
     if (!hasVariants) return [];
@@ -25,9 +33,6 @@ export default function QuickViewModal({ product, onClose }) {
     });
     return sizes;
   }, [hasVariants, variants]);
-
-  const parsedTags = useMemo(() => parseProductTags(product || {}), [product]);
-  const { cleanDesc, discount_tag, colors: parsedColors } = parsedTags;
 
   const availableColors = useMemo(() => {
     const list = [];
@@ -171,13 +176,14 @@ export default function QuickViewModal({ product, onClose }) {
     const set = new Set();
     const commonMain = getProductImage(product);
     if (commonMain) set.add(commonMain);
-    if (Array.isArray(product.images)) {
-      product.images.forEach(img => {
-        if (img && typeof img === 'string' && img.trim() !== '') set.add(img.trim());
-      });
-    }
+    const rawImgs = (Array.isArray(product.images) && product.images.length > 0)
+      ? product.images
+      : (Array.isArray(parsedImages) ? parsedImages : []);
+    rawImgs.forEach(img => {
+      if (img && typeof img === 'string' && img.trim() !== '') set.add(img.trim());
+    });
     return Array.from(set);
-  }, [product, activeVariant]);
+  }, [product, activeVariant, parsedImages]);
 
   const mainImage = allImages[0] || getProductImage(product);
   const currentImg = imgError ? 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80' : (allImages[selImg] || mainImage);

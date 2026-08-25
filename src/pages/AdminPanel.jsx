@@ -7,7 +7,7 @@ import {
   Plus, Edit2, Trash2, Eye, X, Save, Upload,
   AlertTriangle, AlertCircle, Download, Printer,
   Menu, Settings, TrendingUp, ShieldCheck, Home, Sparkles,
-  RotateCcw, Calendar, Copy, Check, Tag, Target, Sliders
+  RotateCcw, Calendar, Copy, Check, Tag, Target, Sliders, Settings2
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { supabase } from '../config/supabase';
@@ -87,36 +87,415 @@ function printShippingLabel(order) {
   w.document.write(html); w.document.close(); w.focus();
 }
 
+/* ── Tailoring & Fashion Default Subcategories ── */
+const DEFAULT_TAILORING_SUBCATS = [
+  { key: 'all', label: 'All Tailoring' },
+  { key: 'machines', label: 'Machines' },
+  { key: 'scissors', label: 'Scissors' },
+  { key: 'threads', label: 'Threads' },
+  { key: 'needles', label: 'Needles' },
+  { key: 'measuring', label: 'Measuring' },
+  { key: 'presser_feet', label: 'Presser Feet' },
+];
+
+const DEFAULT_FASHION_SUBCATS = [
+  { key: 'all', label: 'All Fashion & Textile' },
+  { key: 'dresses', label: 'Dresses' },
+  { key: 'tops', label: 'Tops' },
+  { key: 'bottoms', label: 'Bottoms' },
+  { key: 'ethnic', label: 'Ethnic & Kurtis' },
+  { key: 'fabrics', label: 'Fabrics & Textiles' },
+  { key: 'accessories', label: 'Accessories' },
+];
+
+/* ── Category & Subcategory Manager Modal ── */
+function CategoryManagerModal({
+  isOpen,
+  onClose,
+  activeCategory,
+  products,
+  customSubcats,
+  onSaveCustomSubcats,
+  onRenameSubcategory,
+}) {
+  const [targetCategory, setTargetCategory] = useState(activeCategory || 'tailoring');
+  const [newLabel, setNewLabel] = useState('');
+  const [editingKey, setEditingKey] = useState(null);
+  const [editLabelVal, setEditLabelVal] = useState('');
+
+  useEffect(() => {
+    if (activeCategory) setTargetCategory(activeCategory);
+  }, [activeCategory, isOpen]);
+
+  if (!isOpen) return null;
+
+  const defaults = targetCategory === 'tailoring'
+    ? DEFAULT_TAILORING_SUBCATS
+    : DEFAULT_FASHION_SUBCATS;
+
+  const currentCustom = customSubcats[targetCategory] || [];
+
+  const uniqueSubcatsMap = new Map();
+  defaults.filter(d => d.key !== 'all').forEach(s => uniqueSubcatsMap.set(s.key, s));
+  currentCustom.forEach(s => uniqueSubcatsMap.set(s.key, s));
+
+  // Scan products in DB for any additional custom subcategories
+  products.filter(p => (p.category || '').toLowerCase() === targetCategory).forEach(p => {
+    if (p.sub_category && !uniqueSubcatsMap.has(p.sub_category.toLowerCase())) {
+      const formatted = p.sub_category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      uniqueSubcatsMap.set(p.sub_category.toLowerCase(), {
+        key: p.sub_category.toLowerCase(),
+        label: formatted,
+        isCustom: true
+      });
+    }
+  });
+
+  const subcatsList = Array.from(uniqueSubcatsMap.values());
+
+  const handleAdd = (e) => {
+    e.preventDefault();
+    const trimmed = newLabel.trim();
+    if (!trimmed) return;
+    const key = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!key) return;
+
+    if (uniqueSubcatsMap.has(key)) {
+      toast('A subcategory with this name already exists', 'error');
+      return;
+    }
+
+    const updated = [
+      ...currentCustom.filter(c => c.key !== key),
+      { key, label: trimmed, isCustom: true }
+    ];
+
+    onSaveCustomSubcats(targetCategory, updated);
+    setNewLabel('');
+    toast(`Added subcategory "${trimmed}"!`, 'success');
+  };
+
+  const handleRenameSubmit = async (oldKey) => {
+    const trimmed = editLabelVal.trim();
+    if (!trimmed) return;
+    const newKey = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!newKey) return;
+
+    await onRenameSubcategory(targetCategory, oldKey, newKey, trimmed);
+    setEditingKey(null);
+    setEditLabelVal('');
+  };
+
+  const handleDelete = (keyToDelete) => {
+    const usageCount = products.filter(p => (p.category || '').toLowerCase() === targetCategory && (p.sub_category || '').toLowerCase() === keyToDelete).length;
+    if (usageCount > 0) {
+      toast(`Cannot delete: ${usageCount} product(s) are assigned to this subcategory`, 'error');
+      return;
+    }
+    const updated = currentCustom.filter(c => c.key !== keyToDelete);
+    onSaveCustomSubcats(targetCategory, updated);
+    toast('Subcategory removed', 'success');
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', padding: '16px', boxSizing: 'border-box' }}>
+      <div style={{ background: '#FFFFFF', borderRadius: '18px', width: '100%', maxWidth: '520px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', border: '1px solid #E2E8F0' }}>
+        
+        {/* Header */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#FFFFFF' }}>
+          <div>
+            <h2 style={{ fontSize: '17px', fontWeight: 900, color: '#0F172A', margin: 0 }}>⚙️ Edit Categories &amp; Subcategories</h2>
+            <p style={{ fontSize: '12px', color: '#64748B', margin: '2px 0 0' }}>Add new categories, rename or customize sub-sections</p>
+          </div>
+          <button onClick={onClose} style={{ background: '#F1F5F9', border: 'none', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B' }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Category Switcher Tabs inside Modal */}
+        <div style={{ padding: '12px 20px 0' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', background: '#F1F5F9', padding: '3px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+            <button
+              type="button"
+              onClick={() => { setTargetCategory('tailoring'); setEditingKey(null); }}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                padding: '8px 12px', borderRadius: '9px', border: 'none', cursor: 'pointer',
+                fontSize: '12.5px', fontWeight: 800,
+                background: targetCategory === 'tailoring' ? '#0F172A' : 'transparent',
+                color: targetCategory === 'tailoring' ? '#FFFFFF' : '#475569',
+                boxShadow: targetCategory === 'tailoring' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>🧵 Tailoring</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setTargetCategory('fashion'); setEditingKey(null); }}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                padding: '8px 12px', borderRadius: '9px', border: 'none', cursor: 'pointer',
+                fontSize: '12.5px', fontWeight: 800,
+                background: targetCategory === 'fashion' ? '#0F172A' : 'transparent',
+                color: targetCategory === 'fashion' ? '#FFFFFF' : '#475569',
+                boxShadow: targetCategory === 'fashion' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>👗 Women Fashion</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Modal Body */}
+        <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          
+          {/* Add New Subcategory Form */}
+          <form onSubmit={handleAdd} style={{ background: '#F8FAFC', padding: '12px 14px', borderRadius: '12px', border: '1px solid #E2E8F0', display: 'flex', gap: '8px' }}>
+            <input
+              value={newLabel}
+              onChange={e => setNewLabel(e.target.value)}
+              placeholder={`Add new ${targetCategory === 'tailoring' ? 'tailoring' : 'fashion'} subcategory (e.g. Sarees)...`}
+              style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '12.5px', outline: 'none', background: '#FFFFFF' }}
+            />
+            <button
+              type="submit"
+              disabled={!newLabel.trim()}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 14px', borderRadius: '8px', background: newLabel.trim() ? '#0F172A' : '#94A3B8', color: '#FFFFFF', fontWeight: 800, fontSize: '12px', border: 'none', cursor: newLabel.trim() ? 'pointer' : 'default' }}
+            >
+              <Plus size={14} /> Add
+            </button>
+          </form>
+
+          {/* Subcategories List */}
+          <div>
+            <p style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.4px', margin: '0 0 8px' }}>
+              Subcategories in {targetCategory === 'tailoring' ? 'Tailoring Tools' : "Women's Fashion"} ({subcatsList.length})
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {subcatsList.map((sc) => {
+                const count = products.filter(p => (p.category || '').toLowerCase() === targetCategory && (p.sub_category || '').toLowerCase() === sc.key).length;
+                const isEditing = editingKey === sc.key;
+
+                return (
+                  <div key={sc.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: '10px', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
+                    {isEditing ? (
+                      <div style={{ display: 'flex', gap: '6px', flex: 1, alignItems: 'center' }}>
+                        <input
+                          value={editLabelVal}
+                          onChange={e => setEditLabelVal(e.target.value)}
+                          autoFocus
+                          style={{ flex: 1, padding: '6px 8px', borderRadius: '6px', border: '1px solid #0F172A', fontSize: '12.5px' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRenameSubmit(sc.key)}
+                          style={{ padding: '6px 12px', borderRadius: '6px', background: '#0F172A', color: '#FFFFFF', fontSize: '11px', fontWeight: 800, border: 'none', cursor: 'pointer' }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingKey(null)}
+                          style={{ padding: '6px 10px', borderRadius: '6px', background: '#F1F5F9', color: '#475569', fontSize: '11px', fontWeight: 800, border: 'none', cursor: 'pointer' }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>{sc.label}</span>
+                          <span style={{ fontSize: '10.5px', background: '#F1F5F9', color: '#64748B', fontWeight: 900, padding: '2px 7px', borderRadius: '9999px' }}>
+                            {count} {count === 1 ? 'item' : 'items'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => { setEditingKey(sc.key); setEditLabelVal(sc.label); }}
+                            title="Rename subcategory"
+                            style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '5px 9px', borderRadius: '6px', background: '#F1F5F9', color: '#0F172A', fontSize: '11px', fontWeight: 800, border: 'none', cursor: 'pointer' }}
+                          >
+                            <Edit2 size={11} /> Rename
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(sc.key)}
+                            title={count > 0 ? "Cannot delete while products are assigned" : "Delete subcategory"}
+                            style={{ display: 'flex', alignItems: 'center', padding: '5px 8px', borderRadius: '6px', background: count > 0 ? '#F8FAFC' : '#FEF2F2', color: count > 0 ? '#CBD5E1' : '#DC2626', fontSize: '11px', fontWeight: 800, border: 'none', cursor: count > 0 ? 'not-allowed' : 'pointer' }}
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 20px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'flex-end', background: '#F8FAFC' }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ padding: '8px 18px', borderRadius: '9px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '12px', border: 'none', cursor: 'pointer' }}
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminProductCard({ p, onEdit, onDuplicate, onToggleActive, onDelete }) {
+  const discount = p.original_price > p.price ? Math.round((1 - p.price / p.original_price) * 100) : null;
+  const stockStatus = p.stock === 0
+    ? { label: 'Out of Stock', c: '#DC2626', bg: '#FEF2F2' }
+    : p.stock <= 5
+    ? { label: `Low: ${p.stock}`, c: '#D97706', bg: '#FFFBEB' }
+    : { label: `${p.stock} in stock`, c: '#059669', bg: '#ECFDF5' };
+
+  const isTailoring = (p.category || '').toLowerCase() === 'tailoring' || p.category !== 'fashion';
+  const categoryBadge = isTailoring
+    ? { label: '🧵 Tailoring', bg: '#F1F5F9', c: '#0F172A', border: '#E2E8F0' }
+    : { label: "👗 Women Fashion", bg: '#FDF2F8', c: '#9D174D', border: '#FCE7F3' };
+
+  const formatSubCat = (str) => {
+    if (!str) return null;
+    return str.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  return (
+    <div style={{ background: '#FFFFFF', borderRadius: '14px', overflow: 'hidden', border: '1px solid #E5E7EB', opacity: p.active ? 1 : 0.75, display: 'flex', flexDirection: 'column', transition: 'all 0.15s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+      {/* Image Container */}
+      <div className="admin-prod-card-img" style={{ position: 'relative', height: '150px', background: '#F8FAFC', overflow: 'hidden' }}>
+        {p.image_url ? (
+          <img
+            src={p.image_url}
+            alt={p.name}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            onError={e => { e.target.style.display = 'none'; if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex'; }}
+          />
+        ) : null}
+        <div style={{ display: p.image_url ? 'none' : 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9' }}>
+          <Package size={28} strokeWidth={1} color="#94A3B8" />
+        </div>
+
+        {/* Category Pill & Discount on Image */}
+        <div style={{ position: 'absolute', top: '6px', left: '6px', display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '85%' }}>
+          <span style={{ fontSize: '9px', fontWeight: 800, padding: '2px 7px', borderRadius: '9999px', background: categoryBadge.bg, color: categoryBadge.c, border: `1px solid ${categoryBadge.border}`, backdropFilter: 'blur(4px)' }}>
+            {categoryBadge.label}
+          </span>
+          {discount && (
+            <span style={{ background: '#DC2626', color: 'white', fontSize: '9px', fontWeight: 900, padding: '2px 6px', borderRadius: '9999px' }}>
+              -{discount}%
+            </span>
+          )}
+        </div>
+
+        {!p.active && (
+          <div style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(15,23,42,0.85)', color: 'white', fontSize: '9px', fontWeight: 800, padding: '2px 6px', borderRadius: '9999px' }}>
+            Hidden
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div style={{ padding: '9px 10px 0', flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {p.sub_category && (
+          <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748B' }}>
+            📁 {formatSubCat(p.sub_category)}
+          </span>
+        )}
+        <p className="admin-prod-card-title" style={{ fontSize: '12px', fontWeight: 800, color: '#111827', lineHeight: 1.3, margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {p.name}
+        </p>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: 'auto' }}>
+          <span className="admin-prod-card-price" style={{ fontSize: '14.5px', fontWeight: 900, color: '#0F172A' }}>₹{p.price}</span>
+          {p.original_price > p.price && (
+            <span style={{ fontSize: '10px', color: '#94A3B8', textDecoration: 'line-through' }}>₹{p.original_price}</span>
+          )}
+        </div>
+        {p.stock !== null && (
+          <span style={{ fontSize: '9px', fontWeight: 800, color: stockStatus.c, background: stockStatus.bg, padding: '2px 6px', borderRadius: '9999px', width: 'fit-content' }}>
+            {stockStatus.label}
+          </span>
+        )}
+      </div>
+
+      {/* Actions 2x2 */}
+      <div style={{ padding: '7px 8px 8px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+        <button onClick={() => onEdit(p)}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', padding: '6px 4px', borderRadius: '7px', background: '#F1F5F9', color: '#1E293B', fontWeight: 800, fontSize: '10.5px', border: 'none', cursor: 'pointer' }}>
+          <Edit2 size={10} /> Edit
+        </button>
+        <button onClick={() => onDuplicate(p)}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 4px', borderRadius: '7px', background: '#F5F3FF', color: '#7C3AED', fontWeight: 800, fontSize: '10.5px', border: 'none', cursor: 'pointer' }}>
+          <Copy size={10} /> Dup
+        </button>
+        <button onClick={() => onToggleActive(p)}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 4px', borderRadius: '7px', background: p.active ? '#FFFBEB' : '#ECFDF5', color: p.active ? '#D97706' : '#059669', fontWeight: 800, fontSize: '10.5px', border: 'none', cursor: 'pointer' }}>
+          {p.active ? 'Hide' : 'Show'}
+        </button>
+        <button onClick={() => onDelete(p.id)}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', padding: '6px 4px', borderRadius: '7px', background: '#FEF2F2', color: '#DC2626', fontWeight: 800, fontSize: '10.5px', border: 'none', cursor: 'pointer' }}>
+          <Trash2 size={10} /> Del
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ── Product Modal ────────────────────────────────────────── */
 function ProductModal({ product, onClose, onSave }) {
   const isEdit = !!product?.id;
-  const parsed = parseProductTags(product);
+  const targetProduct = isEdit ? product : null;
+  const defaultCategory = (typeof product === 'object' && product?.defaultCategory)
+    ? product.defaultCategory
+    : (typeof product === 'string' && product.includes('fashion') ? 'fashion' : (product?.category || 'tailoring'));
+  const parsed = parseProductTags(targetProduct);
+
+  const initialVariants = (Array.isArray(targetProduct?.variants) && targetProduct.variants.length > 0)
+    ? targetProduct.variants
+    : (Array.isArray(parsed.variants) ? parsed.variants : []);
+  const initialImages = (Array.isArray(targetProduct?.images) && targetProduct.images.length > 0)
+    ? targetProduct.images
+    : (Array.isArray(parsed.images) ? parsed.images : []);
+  const initialVideos = (Array.isArray(targetProduct?.video_links) && targetProduct.video_links.length > 0)
+    ? targetProduct.video_links
+    : (Array.isArray(parsed.video_links) ? parsed.video_links : []);
 
   const [form, setForm] = useState({
-    name: product?.name||'',
+    name: targetProduct?.name||'',
     description: parsed.cleanDesc||'',
-    price: product?.price||'',
-    original_price: product?.original_price||'',
+    price: targetProduct?.price||'',
+    original_price: targetProduct?.original_price||'',
     badge: parsed.badge||'',
     discount_tag: parsed.discount_tag||'',
-    colors: parsed.colors || product?.colors || [],
-    variants_enabled: Boolean(product?.variants && Array.isArray(product.variants) && product.variants.length > 0),
-    variants: Array.isArray(product?.variants) ? product.variants : [],
+    colors: (Array.isArray(parsed.colors) && parsed.colors.length > 0) ? parsed.colors : (targetProduct?.colors || []),
+    variants_enabled: Boolean(initialVariants && initialVariants.length > 0),
+    variants: initialVariants,
     bundle_enabled: parsed.bundle?.enabled ?? true,
     bundle_companions: parsed.bundle?.companionIds?.length ? parsed.bundle.companionIds : (parsed.bundle?.companionId ? [parsed.bundle.companionId] : []),
     bundle_discount: parsed.bundle?.discountPct ?? 5,
     bundle_subtitle: parsed.bundle?.subtitle || '',
-    category: product?.category||'tailoring',
-    sub_category: product?.sub_category||'',
-    unit: product?.unit||'',
-    stock: product?.stock||'',
-    image_url: product?.image_url||'',
-    images: product?.images||[],
-    video_links: product?.video_links||[],
-    active: product?.active??true,
+    category: targetProduct?.category || defaultCategory,
+    sub_category: targetProduct?.sub_category||'',
+    unit: targetProduct?.unit||'',
+    stock: targetProduct?.stock||'',
+    image_url: targetProduct?.image_url||'',
+    images: initialImages,
+    video_links: initialVideos,
+    active: targetProduct?.active??true,
   });
   const [customSubCat, setCustomSubCat] = useState(() => {
-    return !!(product?.sub_category && !['machines','scissors','threads','needles','measuring','presser_feet','dresses','tops','bottoms','ethnic','accessories'].includes(product.sub_category));
+    return !!(targetProduct?.sub_category && !['machines','scissors','threads','needles','measuring','presser_feet','dresses','tops','bottoms','ethnic','accessories'].includes(targetProduct.sub_category));
   });
   const [catalogProducts, setCatalogProducts] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -281,7 +660,14 @@ function ProductModal({ product, onClose, onSave }) {
     e.preventDefault(); if (!form.name||!form.price){alert('Name and price required');return;}
     setSaving(true);
     try {
-      let finalDesc = (form.description || '').replace(/\s*\[TAG:[^\]]*\]/g, '').replace(/\s*\[BUNDLE:[^\]]*\]/g, '').trim();
+      let finalDesc = (form.description || '')
+        .replace(/\s*\[TAG:[^\]]*\]/gi, '')
+        .replace(/\s*\[BUNDLE:[^\]]*\]/gi, '')
+        .replace(/\s*\[VARIANTS:[^\]]*\]/gi, '')
+        .replace(/\s*\[IMAGES:[^\]]*\]/gi, '')
+        .replace(/\s*\[VIDEOS:[^\]]*\]/gi, '')
+        .trim();
+
       const colorsStr = (form.colors || []).join(',');
       const tagStr = [form.badge || '', form.discount_tag || '', colorsStr].join('|');
       if (tagStr !== '||') {
@@ -318,7 +704,12 @@ function ProductModal({ product, onClose, onSave }) {
         }
       }
 
-      const rawPayload = {
+      const variantsPayload = (form.variants_enabled && form.variants && form.variants.length > 0) ? form.variants : [];
+      const imagesPayload = form.images || [];
+      const videoLinksPayload = form.video_links || [];
+
+      // Construct base payload
+      const payload = {
         name: form.name.trim(),
         description: finalDesc,
         price: parseFloat(form.price) || 0,
@@ -328,16 +719,71 @@ function ProductModal({ product, onClose, onSave }) {
         unit: form.unit || null,
         stock: form.stock !== '' && form.stock !== null ? parseInt(form.stock) : null,
         image_url: form.image_url || null,
-        images: form.images || [],
-        video_links: form.video_links || [],
-        variants: form.variants_enabled && form.variants ? form.variants : [],
+        images: imagesPayload,
+        video_links: videoLinksPayload,
+        variants: variantsPayload,
         active: form.active ?? true,
       };
 
-      if (isEdit) { const {error}=await supabase.from('products').update(rawPayload).eq('id',product.id); if(error)throw error; toast('Product updated!','success'); }
-      else { const {error}=await supabase.from('products').insert([rawPayload]); if(error)throw error; toast('Product added!','success'); }
+      // Resilient save loop: Try native columns first; if schema cache is missing a column, fall back to safe tag encoding
+      let saved = false;
+      let lastError = null;
+
+      for (let attempt = 0; attempt < 4 && !saved; attempt++) {
+        const res = isEdit
+          ? await supabase.from('products').update(payload).eq('id', product.id)
+          : await supabase.from('products').insert([payload]);
+
+        if (!res.error) {
+          saved = true;
+          break;
+        }
+
+        const errMsg = (res.error?.message || '').toLowerCase();
+        lastError = res.error;
+
+        // Check if schema cache lacks 'variants' column
+        if (errMsg.includes('variants') && 'variants' in payload) {
+          delete payload.variants;
+          if (variantsPayload.length > 0) {
+            payload.description = `${payload.description} [VARIANTS:${encodeURIComponent(JSON.stringify(variantsPayload))}]`;
+          }
+          continue;
+        }
+
+        // Check if schema cache lacks 'video_links' column
+        if (errMsg.includes('video_links') && 'video_links' in payload) {
+          delete payload.video_links;
+          if (videoLinksPayload.length > 0) {
+            payload.description = `${payload.description} [VIDEOS:${encodeURIComponent(JSON.stringify(videoLinksPayload))}]`;
+          }
+          continue;
+        }
+
+        // Check if schema cache lacks 'images' column
+        if (errMsg.includes('images') && 'images' in payload) {
+          delete payload.images;
+          if (imagesPayload.length > 0) {
+            payload.description = `${payload.description} [IMAGES:${encodeURIComponent(JSON.stringify(imagesPayload))}]`;
+          }
+          continue;
+        }
+
+        // Other non-column error
+        break;
+      }
+
+      if (!saved) {
+        throw lastError || new Error('Failed to save product');
+      }
+
+      toast(isEdit ? 'Product updated!' : 'Product added!', 'success');
       onSave();
-    } catch(err){toast('Error: '+err.message,'error');} finally{setSaving(false);}
+    } catch(err) {
+      toast('Error: ' + err.message, 'error');
+    } finally {
+      setSaving(false);
+    }
   }
 
   const S = {width:'100%',padding:'9px 12px',borderRadius:'10px',border:'1.5px solid #E2E8F0',fontSize:'13px',fontFamily:'inherit',outline:'none',boxSizing:'border-box'};
@@ -501,9 +947,25 @@ function ProductModal({ product, onClose, onSave }) {
                     setForm(p => ({ ...p, sub_category: e.target.value }));
                   }
                 }} style={S}>
-                <option value="">Sub category</option>
-                {(form.category==='tailoring'?['machines','scissors','threads','needles','measuring','presser_feet']:['dresses','tops','bottoms','ethnic','accessories']).map(s=><option key={s} value={s}>{s}</option>)}
-                <option value="custom">✏️ + Custom Subcategory...</option>
+                <option value="">Select subcategory...</option>
+                {(() => {
+                  try {
+                    const stored = localStorage.getItem('asmalabel_custom_subcategories_v1');
+                    const custom = stored ? JSON.parse(stored) : { tailoring: [], fashion: [] };
+                    const defaults = form.category === 'tailoring'
+                      ? DEFAULT_TAILORING_SUBCATS.filter(d => d.key !== 'all')
+                      : DEFAULT_FASHION_SUBCATS.filter(d => d.key !== 'all');
+                    const map = new Map();
+                    defaults.forEach(d => map.set(d.key, d.label));
+                    (custom[form.category] || []).forEach(c => map.set(c.key, c.label || c.key));
+                    return Array.from(map.entries()).map(([k, l]) => (
+                      <option key={k} value={k}>{l}</option>
+                    ));
+                  } catch {
+                    return (form.category==='tailoring'?['machines','scissors','threads','needles','measuring','presser_feet']:['dresses','tops','bottoms','ethnic','accessories']).map(s=><option key={s} value={s}>{s}</option>);
+                  }
+                })()}
+                <option value="custom">✏️ + Type New Subcategory...</option>
               </select>
               {(customSubCat || (form.sub_category && !['machines','scissors','threads','needles','measuring','presser_feet','dresses','tops','bottoms','ethnic','accessories'].includes(form.sub_category))) && (
                 <input placeholder="Type custom subcategory (e.g. blouses)"
@@ -1818,8 +2280,75 @@ export default function AdminPanel() {
   const [confirming, setConfirming] = useState(null);
   const [modal,      setModal]      = useState(null);
   const [search,     setSearch]     = useState('');
-  const [catFilter,  setCatFilter]  = useState('all');
+  const [productTab, setProductTab] = useState('tailoring'); // 'tailoring' | 'fashion'
+  const [tailoringSubCat, setTailoringSubCat] = useState('all');
+  const [fashionSubCat,   setFashionSubCat]   = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+
+  // ── CUSTOM SUBCATEGORIES STATE & MODAL ──
+  const [customSubcats, setCustomSubcats] = useState(() => {
+    try {
+      const stored = localStorage.getItem('asmalabel_custom_subcategories_v1');
+      return stored ? JSON.parse(stored) : { tailoring: [], fashion: [] };
+    } catch {
+      return { tailoring: [], fashion: [] };
+    }
+  });
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+
+  const handleSaveCustomSubcats = (cat, list) => {
+    const updated = { ...customSubcats, [cat]: list };
+    setCustomSubcats(updated);
+    try {
+      localStorage.setItem('asmalabel_custom_subcategories_v1', JSON.stringify(updated));
+    } catch { }
+  };
+
+  const handleRenameSubcategory = async (cat, oldKey, newKey, newLabel) => {
+    const affectedProducts = products.filter(p => (p.category || '').toLowerCase() === cat && (p.sub_category || '').toLowerCase() === oldKey);
+    if (affectedProducts.length > 0) {
+      const { error } = await supabase
+        .from('products')
+        .update({ sub_category: newKey })
+        .eq('category', cat)
+        .eq('sub_category', oldKey);
+      if (error) {
+        toast(`Error updating products: ${error.message}`, 'error');
+        return;
+      }
+    }
+
+    const currentList = customSubcats[cat] || [];
+    const updatedList = [
+      ...currentList.filter(c => c.key !== oldKey && c.key !== newKey),
+      { key: newKey, label: newLabel, isCustom: true }
+    ];
+    handleSaveCustomSubcats(cat, updatedList);
+    toast(`Renamed to "${newLabel}" (${affectedProducts.length} products updated)`, 'success');
+    fetchProducts();
+  };
+
+  const getSubcategoriesList = (categoryKey) => {
+    const defaults = categoryKey === 'tailoring' ? DEFAULT_TAILORING_SUBCATS : DEFAULT_FASHION_SUBCATS;
+    const customs = customSubcats[categoryKey] || [];
+    const map = new Map();
+
+    defaults.forEach(d => map.set(d.key, d));
+    customs.forEach(c => map.set(c.key, c));
+
+    products.filter(p => (p.category || '').toLowerCase() === categoryKey).forEach(p => {
+      if (p.sub_category && !map.has(p.sub_category.toLowerCase())) {
+        const formatted = p.sub_category.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+        map.set(p.sub_category.toLowerCase(), {
+          key: p.sub_category.toLowerCase(),
+          label: formatted,
+          isCustom: true
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  };
 
   // ── COUPON MANAGEMENT STATE ──
   const DEFAULT_COUPONS = [
@@ -2482,12 +3011,40 @@ buildPages(4);
   }
 
 
-  /* derived */
-  const filteredProducts = products.filter(p => {
-    const ms = (p.name || '').toLowerCase().includes(search.toLowerCase());
-    const mc = catFilter === 'all' || p.category === catFilter;
-    return ms && mc;
+  /* derived product categories */
+  const allTailoringList = products.filter(p => (p.category || '').toLowerCase() === 'tailoring' || !(p.category === 'fashion'));
+  const allFashionList = products.filter(p => (p.category || '').toLowerCase() === 'fashion');
+
+  const tailoringProducts = allTailoringList.filter(p => {
+    const s = search.toLowerCase().trim();
+    const ms = !s || (p.name || '').toLowerCase().includes(s) || (p.sub_category || '').toLowerCase().includes(s);
+    const mSub = tailoringSubCat === 'all' || (p.sub_category || '').toLowerCase() === tailoringSubCat.toLowerCase();
+    return ms && mSub;
   });
+
+  const fashionProducts = allFashionList.filter(p => {
+    const s = search.toLowerCase().trim();
+    const ms = !s || (p.name || '').toLowerCase().includes(s) || (p.sub_category || '').toLowerCase().includes(s);
+    const mSub = fashionSubCat === 'all' || (p.sub_category || '').toLowerCase() === fashionSubCat.toLowerCase();
+    return ms && mSub;
+  });
+
+  const handleDuplicateProduct = async (p) => {
+    const { id: _id, created_at: _c, updated_at: _u, ...rest } = p;
+    const payload = { ...rest, name: rest.name + ' (Copy)', active: false };
+    let { error } = await supabase.from('products').insert([payload]);
+    if (error && error.message?.toLowerCase()?.includes('variants') && 'variants' in payload) {
+      delete payload.variants;
+      const res = await supabase.from('products').insert([payload]);
+      error = res.error;
+    }
+    if (!error) {
+      toast('Product duplicated!', 'success');
+      fetchProducts();
+    } else {
+      toast('Error: ' + error.message, 'error');
+    }
+  };
 
   const today = new Date().toDateString();
   const todayOrders  = allOrders.filter(o=>new Date(o.created_at).toDateString()===today).length;
@@ -2820,128 +3377,282 @@ buildPages(4);
               )}
             </div>
           )}
-
-          {/* ── PRODUCTS TAB — Mobile 2x2 grid ── */}
+          {/* ── PRODUCTS TAB — 2 Dedicated Category Tabs ── */}
           {page==='products' && (
-            <div className="page-enter" style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+            <div className="page-enter" style={{ display:'flex', flexDirection:'column', gap:'14px' }}>
 
-              {/* Toolbar */}
-              <div style={{ background:'#FFFFFF', borderRadius:'14px', border:'1px solid #E5E7EB', padding:'14px', boxSizing:'border-box' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'10px' }}>
-                      <div>
-                        <h1 style={{ fontSize:'16px', fontWeight:900, color:'#111827', margin:0 }}>Products</h1>
-                        <p style={{ fontSize:'11px', color:'#6B7280', margin:0 }}>Manage stock &amp; catalog</p>
-                      </div>
-                      <button onClick={()=>setModal('add')}
-                        style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:'4px', padding:'7px 12px', borderRadius:'9px', background:'#0F172A', color:'#FFFFFF', fontWeight:800, fontSize:'12px', border:'none', cursor:'pointer', flexShrink:0 }}>
-                        <Plus size={14} /> Add
-                      </button>
-                    </div>
-                <div className="admin-products-toolbar-row" style={{ display:'flex', gap:'6px', alignItems:'center', flexWrap:'wrap', width:'100%', boxSizing:'border-box' }}>
-                  <div style={{ position:'relative', flex:'1 1 120px', minWidth:'120px' }}>
-                    <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..."
-                      style={{ width:'100%', padding:'7px 10px 7px 28px', borderRadius:'8px', border:'1px solid #E2E8F0', fontSize:'12px', outline:'none', background:'#F8FAFC', boxSizing:'border-box' }} />
-                    <Search size={12} color="#94A3B8" style={{ position:'absolute', left:'8px', top:'50%', transform:'translateY(-50%)' }} />
+              {/* ── TOP HORIZONTAL CATEGORY TABS BAR (Mobile Fixed & Theme-Matched) ── */}
+              <div style={{ background:'#F1F5F9', borderRadius:'12px', border:'1px solid #E2E8F0', padding:'3px', boxSizing:'border-box', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px', width:'100%' }}>
+                <button
+                  type="button"
+                  onClick={() => setProductTab('tailoring')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '9px 8px',
+                    borderRadius: '9px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    transition: 'all 0.15s ease',
+                    background: productTab === 'tailoring' ? '#0F172A' : 'transparent',
+                    color: productTab === 'tailoring' ? '#FFFFFF' : '#64748B',
+                    boxShadow: productTab === 'tailoring' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                    minWidth: 0,
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <span style={{ fontSize: '14px', flexShrink: 0 }}>🧵</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                    Tailoring Tools
+                  </span>
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 900,
+                    padding: '1px 6px',
+                    borderRadius: '9999px',
+                    background: productTab === 'tailoring' ? 'rgba(255,255,255,0.22)' : '#E2E8F0',
+                    color: productTab === 'tailoring' ? '#FFFFFF' : '#475569',
+                    flexShrink: 0,
+                    lineHeight: '14px'
+                  }}>
+                    {allTailoringList.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setProductTab('fashion')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '9px 8px',
+                    borderRadius: '9px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    transition: 'all 0.15s ease',
+                    background: productTab === 'fashion' ? '#0F172A' : 'transparent',
+                    color: productTab === 'fashion' ? '#FFFFFF' : '#64748B',
+                    boxShadow: productTab === 'fashion' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                    minWidth: 0,
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <span style={{ fontSize: '14px', flexShrink: 0 }}>👗</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                    Women's Fashion
+                  </span>
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 900,
+                    padding: '1px 6px',
+                    borderRadius: '9999px',
+                    background: productTab === 'fashion' ? 'rgba(255,255,255,0.22)' : '#E2E8F0',
+                    color: productTab === 'fashion' ? '#FFFFFF' : '#475569',
+                    flexShrink: 0,
+                    lineHeight: '14px'
+                  }}>
+                    {allFashionList.length}
+                  </span>
+                </button>
+              </div>
+
+              {/* ── HORIZONTAL SUBCATEGORY PILLS BAR + MANAGE BUTTON ── */}
+              <div style={{ display:'flex', gap:'6px', alignItems:'center', overflowX:'auto', paddingBottom:'4px', scrollbarWidth:'none', WebkitOverflowScrolling:'touch' }} className="sh-scroll-hide">
+                {getSubcategoriesList(productTab).map(sc => {
+                  const isTailoring = productTab === 'tailoring';
+                  const currentList = isTailoring ? allTailoringList : allFashionList;
+                  const count = sc.key === 'all'
+                    ? currentList.length
+                    : currentList.filter(p => (p.sub_category || '').toLowerCase() === sc.key).length;
+                  const active = (isTailoring ? tailoringSubCat : fashionSubCat) === sc.key;
+
+                  return (
+                    <button
+                      key={sc.key}
+                      onClick={() => isTailoring ? setTailoringSubCat(sc.key) : setFashionSubCat(sc.key)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        border: active ? '1px solid #0F172A' : '1px solid #E2E8F0',
+                        background: active ? '#0F172A' : '#FFFFFF',
+                        color: active ? '#FFFFFF' : '#475569',
+                        fontSize: '11.5px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.12s ease',
+                        flexShrink: 0
+                      }}
+                    >
+                      <span>{sc.label}</span>
+                      <span style={{
+                        fontSize: '9.5px',
+                        background: active ? 'rgba(255,255,255,0.22)' : '#F1F5F9',
+                        color: active ? '#FFFFFF' : '#64748B',
+                        padding: '1px 5px',
+                        borderRadius: '9999px',
+                        fontWeight: 900
+                      }}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {/* Manage Categories & Subcategories Button */}
+                <button
+                  onClick={() => setCategoryModalOpen(true)}
+                  title="Add, edit, or rename subcategories"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    background: '#F8FAFC',
+                    border: '1px dashed #94A3B8',
+                    color: '#0F172A',
+                    fontSize: '11.5px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    transition: 'all 0.12s ease'
+                  }}
+                >
+                  <Settings2 size={12} color="#0F172A" />
+                  <span>Edit Categories</span>
+                </button>
+              </div>
+
+              {/* ── ACTION & SEARCH TOOLBAR ── */}
+              <div style={{ background:'#FFFFFF', borderRadius:'14px', border:'1px solid #E5E7EB', padding:'12px 14px', display:'flex', flexDirection:'column', gap:'10px', boxShadow:'0 1px 3px rgba(0,0,0,0.03)' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'8px' }}>
+                  <div>
+                    <h2 style={{ fontSize:'15px', fontWeight:900, color:'#0F172A', margin:0 }}>
+                      {productTab === 'tailoring' ? '🧵 Tailoring Machinery & Tools Catalog' : "👗 Women's Fashion & Textile Collection"}
+                    </h2>
+                    <p style={{ fontSize:'11px', color:'#64748B', margin:'2px 0 0 0' }}>
+                      {productTab === 'tailoring'
+                        ? `Showing ${tailoringProducts.length} of ${allTailoringList.length} tailoring items`
+                        : `Showing ${fashionProducts.length} of ${allFashionList.length} fashion & textile items`}
+                    </p>
                   </div>
-                  <select value={catFilter} onChange={e=>setCatFilter(e.target.value)}
-                    style={{ padding:'7px 8px', borderRadius:'8px', border:'1px solid #E2E8F0', fontSize:'11px', background:'#FFFFFF', fontWeight:700, color:'#334155', flexShrink:0, maxWidth:'110px', minWidth:'70px', boxSizing:'border-box' }}>
-                    <option value="all">All</option>
-                    <option value="tailoring">Tailoring</option>
-                    <option value="fashion">Fashion</option>
-                  </select>
-                  <button onClick={()=>exportProductsCSV(products)}
-                    style={{ display:'flex', alignItems:'center', gap:'3px', padding:'7px 10px', borderRadius:'8px', background:'#F1F5F9', border:'1px solid #E2E8F0', color:'#334155', fontSize:'11px', fontWeight:800, cursor:'pointer', flexShrink:0 }}>
-                    <Download size={12} /> CSV
-                  </button>
+                  <div style={{ display:'flex', alignItems:'center', gap:'6px', flexWrap:'wrap' }}>
+                    <button
+                      onClick={() => setCategoryModalOpen(true)}
+                      style={{ display:'flex', alignItems:'center', gap:'4px', padding:'7px 11px', borderRadius:'8px', background:'#F1F5F9', border:'1px solid #E2E8F0', color:'#0F172A', fontSize:'11px', fontWeight:800, cursor:'pointer' }}
+                    >
+                      <Settings2 size={12} /> Edit Categories
+                    </button>
+                    <button
+                      onClick={() => setModal(productTab === 'tailoring' ? 'add_tailoring' : 'add_fashion')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '7px 13px',
+                        borderRadius: '9px',
+                        background: '#0F172A',
+                        color: '#FFFFFF',
+                        fontWeight: 800,
+                        fontSize: '11.5px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(15,23,42,0.2)'
+                      }}
+                    >
+                      <Plus size={13} /> {productTab === 'tailoring' ? 'Add Tailoring Product' : 'Add Fashion Product'}
+                    </button>
+                    <button
+                      onClick={() => exportProductsCSV(productTab === 'tailoring' ? allTailoringList : allFashionList)}
+                      style={{ display:'flex', alignItems:'center', gap:'4px', padding:'7px 10px', borderRadius:'8px', background:'#F1F5F9', border:'1px solid #E2E8F0', color:'#334155', fontSize:'11px', fontWeight:800, cursor:'pointer' }}
+                    >
+                      <Download size={12} /> CSV
+                    </button>
+                  </div>
+                </div>
+
+                {/* Search input */}
+                <div style={{ position:'relative', width:'100%' }}>
+                  <input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder={productTab === 'tailoring' ? 'Search tailoring machines, threads, needles...' : 'Search dresses, kurtis, tops, fabrics...'}
+                    style={{ width:'100%', padding:'8px 10px 8px 30px', borderRadius:'9px', border:'1px solid #E2E8F0', fontSize:'12px', outline:'none', background:'#F8FAFC', boxSizing:'border-box' }}
+                  />
+                  <Search size={13} color="#94A3B8" style={{ position:'absolute', left:'9px', top:'50%', transform:'translateY(-50%)' }} />
+                  {search && (
+                    <button onClick={() => setSearch('')} style={{ position:'absolute', right:'8px', top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'#94A3B8' }}>
+                      <X size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Metrics Strip — 2x2 on mobile */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
-                {[
-                  { label:'Total', value:products.length },
-                  { label:'Active', value:products.filter(p=>p.active).length },
-                  { label:'Hidden', value:products.filter(p=>!p.active).length },
-                  { label:'Low Stock', value:products.filter(p=>p.stock!==null&&p.stock<=5).length },
-                ].map(({ label, value }) => (
-                  <div key={label} style={{ background:'#FFFFFF', borderRadius:'10px', padding:'10px 12px', border:'1px solid #E5E7EB' }}>
-                    <p style={{ fontSize:'10px', fontWeight:800, color:'#6B7280', textTransform:'uppercase', letterSpacing:'0.4px', margin:0 }}>{label}</p>
-                    <p style={{ fontSize:'20px', fontWeight:900, color:'#111827', margin:'2px 0 0 0' }}>{value}</p>
+              {/* ── METRICS STRIP (Slate Theme) ── */}
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))', gap:'8px' }}>
+                {(productTab === 'tailoring' ? [
+                  { label:'Total Tailoring', value:allTailoringList.length, c:'#0F172A' },
+                  { label:'Active', value:allTailoringList.filter(p=>p.active).length, c:'#059669' },
+                  { label:'Hidden', value:allTailoringList.filter(p=>!p.active).length, c:'#64748B' },
+                  { label:'Low Stock', value:allTailoringList.filter(p=>p.stock!==null&&p.stock<=5).length, c:'#D97706' },
+                ] : [
+                  { label:'Total Fashion', value:allFashionList.length, c:'#0F172A' },
+                  { label:'Active', value:allFashionList.filter(p=>p.active).length, c:'#059669' },
+                  { label:'Hidden', value:allFashionList.filter(p=>!p.active).length, c:'#64748B' },
+                  { label:'Low Stock', value:allFashionList.filter(p=>p.stock!==null&&p.stock<=5).length, c:'#D97706' },
+                ]).map(({ label, value, c }) => (
+                  <div key={label} style={{ background:'#FFFFFF', borderRadius:'10px', padding:'9px 12px', border:'1px solid #E5E7EB' }}>
+                    <p style={{ fontSize:'10px', fontWeight:800, color:'#64748B', textTransform:'uppercase', margin:0 }}>{label}</p>
+                    <p style={{ fontSize:'18px', fontWeight:900, color: c, margin:'2px 0 0 0' }}>{value}</p>
                   </div>
                 ))}
               </div>
 
-              {/* Product Cards Grid — 2x2 on mobile via CSS class */}
+              {/* ── PRODUCTS GRID ── */}
               {loading ? (
                 <div className="admin-products-grid">
                   {[...Array(6)].map((_,i)=><ProductSkeleton key={i}/>)}
                 </div>
-              ) : filteredProducts.length===0 ? (
-                <EmptyState icon={Package} title="No products found" desc={search?`No products match "${search}"`:"Click Add to create your first product"} action="Add Product" onAction={()=>setModal('add')}/>
+              ) : (productTab === 'tailoring' ? tailoringProducts : fashionProducts).length === 0 ? (
+                <EmptyState
+                  icon={Package}
+                  title={productTab === 'tailoring' ? 'No tailoring products found' : 'No women fashion products found'}
+                  desc={search ? `No items match "${search}"` : (productTab === 'tailoring' ? "Click below to add a sewing machine or tailoring tool" : "Click below to add a dress, kurti or fabric item")}
+                  action={productTab === 'tailoring' ? 'Add Tailoring Product' : 'Add Fashion Product'}
+                  onAction={() => setModal(productTab === 'tailoring' ? 'add_tailoring' : 'add_fashion')}
+                />
               ) : (
                 <div className="admin-products-grid">
-                  {filteredProducts.map(p => {
-                    const discount = p.original_price > p.price ? Math.round((1-p.price/p.original_price)*100) : null;
-                    const stockStatus = p.stock===0
-                      ? {label:'Out of Stock',c:'#DC2626',bg:'#FEF2F2'}
-                      : p.stock<=5
-                      ? {label:`Low: ${p.stock}`,c:'#D97706',bg:'#FFFBEB'}
-                      : {label:`${p.stock} in stock`,c:'#059669',bg:'#ECFDF5'};
-                    return (
-                      <div key={p.id} style={{ background:'#FFFFFF', borderRadius:'12px', overflow:'hidden', border:'1px solid #E5E7EB', opacity:p.active?1:.7, display:'flex', flexDirection:'column' }}>
-
-                        {/* Image */}
-                        <div className="admin-prod-card-img" style={{ position:'relative', height:'150px', background:'#F8FAFC', overflow:'hidden' }}>
-                          {p.image_url
-                            ? <img src={p.image_url} alt={p.name} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex';}}/>
-                            : null
-                          }
-                          <div style={{ display:p.image_url?'none':'flex', width:'100%', height:'100%', alignItems:'center', justifyContent:'center', background:'#F1F5F9' }}>
-                            <Package size={28} strokeWidth={1} color="#94A3B8"/>
-                          </div>
-                          {discount && <div style={{ position:'absolute', top:'6px', left:'6px', background:'#DC2626', color:'white', fontSize:'9px', fontWeight:900, padding:'2px 6px', borderRadius:'9999px' }}>-{discount}%</div>}
-                          {!p.active && <div style={{ position:'absolute', top:'6px', right:'6px', background:'rgba(15,23,42,0.75)', color:'white', fontSize:'9px', fontWeight:800, padding:'2px 6px', borderRadius:'9999px' }}>Hidden</div>}
-                        </div>
-
-                        {/* Info */}
-                        <div style={{ padding:'8px 8px 0', flex:1, display:'flex', flexDirection:'column', gap:'4px' }}>
-                          <p className="admin-prod-card-title" style={{ fontSize:'12px', fontWeight:800, color:'#111827', lineHeight:1.3, margin:0, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{p.name}</p>
-                          <div style={{ display:'flex', alignItems:'baseline', gap:'4px' }}>
-                            <span className="admin-prod-card-price" style={{ fontSize:'14px', fontWeight:900, color:'#111827' }}>₹{p.price}</span>
-                            {p.original_price>p.price && <span style={{ fontSize:'10px', color:'#9CA3AF', textDecoration:'line-through' }}>₹{p.original_price}</span>}
-                          </div>
-                          {p.stock!==null && (
-                            <span style={{ fontSize:'9px', fontWeight:800, color:stockStatus.c, background:stockStatus.bg, padding:'2px 6px', borderRadius:'9999px', width:'fit-content' }}>{stockStatus.label}</span>
-                          )}
-                        </div>
-
-                        {/* Actions 2x2 */}
-                        <div style={{ padding:'6px 8px 8px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px' }}>
-                          <button onClick={()=>setModal(p)}
-                            style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'3px', padding:'6px 4px', borderRadius:'7px', background:'#F1F5F9', color:'#1E293B', fontWeight:800, fontSize:'10px', border:'none', cursor:'pointer' }}>
-                            <Edit2 size={10}/> Edit
-                          </button>
-                          <button onClick={async()=>{
-                            const {id:_,...rest}=p;
-                            const {error}=await supabase.from('products').insert([{...rest,name:rest.name+' (Copy)',active:false}]);
-                            if(!error){toast('Duplicated','success');fetchProducts();}else toast('Error','error');
-                          }} style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'6px 4px', borderRadius:'7px', background:'#F5F3FF', color:'#7C3AED', fontWeight:800, fontSize:'10px', border:'none', cursor:'pointer' }}>
-                            Dup
-                          </button>
-                          <button onClick={()=>handleToggleActive(p)}
-                            style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'6px 4px', borderRadius:'7px', background:p.active?'#FFFBEB':'#ECFDF5', color:p.active?'#D97706':'#059669', fontWeight:800, fontSize:'10px', border:'none', cursor:'pointer' }}>
-                            {p.active?'Hide':'Show'}
-                          </button>
-                          <button onClick={()=>handleDeleteProduct(p.id)}
-                            style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'3px', padding:'6px 4px', borderRadius:'7px', background:'#FEF2F2', color:'#DC2626', fontWeight:800, fontSize:'10px', border:'none', cursor:'pointer' }}>
-                            <Trash2 size={10}/> Del
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {(productTab === 'tailoring' ? tailoringProducts : fashionProducts).map(p => (
+                    <AdminProductCard
+                      key={p.id}
+                      p={p}
+                      onEdit={(prod) => setModal(prod)}
+                      onDuplicate={handleDuplicateProduct}
+                      onToggleActive={handleToggleActive}
+                      onDelete={handleDeleteProduct}
+                    />
+                  ))}
                 </div>
               )}
+
             </div>
           )}
 
@@ -3181,7 +3892,7 @@ buildPages(4);
                       if (!ok) return;
                       setResetMetrics(true);
                       setDateFilter('all'); 
-                      setCatFilter('all'); 
+                      setProductTab('tailoring'); 
                       toast('Performance Analytics metrics reset to ₹0 / default placeholders!', 'success'); 
                     }}
                       title="Reset analytics metric values to ₹0 placeholders"
@@ -3384,7 +4095,11 @@ buildPages(4);
       {/* Product modal */}
       <AnimatePresence>
         {modal && (
-          <ProductModal product={modal==='add'?null:modal} onClose={()=>setModal(null)} onSave={()=>{setModal(null);fetchProducts();}}/>
+          <ProductModal
+            product={typeof modal === 'string' ? { isAdd: true, defaultCategory: modal.includes('fashion') ? 'fashion' : 'tailoring' } : modal}
+            onClose={()=>setModal(null)}
+            onSave={()=>{setModal(null);fetchProducts();}}
+          />
         )}
       </AnimatePresence>
 
@@ -3653,6 +4368,17 @@ buildPages(4);
           </div>
         )}
       </AnimatePresence>
+
+      {/* ── Category & Subcategory Manager Modal ── */}
+      <CategoryManagerModal
+        isOpen={categoryModalOpen}
+        onClose={() => setCategoryModalOpen(false)}
+        activeCategory={productTab}
+        products={products}
+        customSubcats={customSubcats}
+        onSaveCustomSubcats={handleSaveCustomSubcats}
+        onRenameSubcategory={handleRenameSubcategory}
+      />
 
       {/* Floating Quick Actions (Hide on CMS page so it doesn't block inputs on mobile) */}
       {page !== 'cms' && (

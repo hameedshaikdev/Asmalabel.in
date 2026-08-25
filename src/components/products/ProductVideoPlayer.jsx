@@ -1,5 +1,6 @@
 import React from 'react';
 import { Tv, Play, ExternalLink } from 'lucide-react';
+import { parseProductTags } from '../../utils/productImages';
 
 function getYouTubeId(urlStr) {
   if (!urlStr || typeof urlStr !== 'string') return null;
@@ -167,7 +168,10 @@ function VideoItem({ video, index }) {
 export default function ProductVideoPlayer({ product, compact = false }) {
   if (!product) return null;
 
-  const rawV = product.video_links || product.videos || [];
+  const parsed = parseProductTags(product);
+  const rawV = (Array.isArray(product.video_links) && product.video_links.length > 0)
+    ? product.video_links
+    : (product.videos || parsed.video_links || []);
   let videoList = [];
   try {
     if (Array.isArray(rawV)) videoList = [...rawV];

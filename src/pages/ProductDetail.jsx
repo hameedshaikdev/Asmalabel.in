@@ -160,7 +160,7 @@ export default function ProductDetail() {
   
   // Memoize parsed tags & bundle to prevent infinite re-render loop (React Error #185)
   const parsedTags = useMemo(() => parseProductTags(product), [product]);
-  const { cleanDesc, discount_tag, colors: parsedColors, bundle } = parsedTags;
+  const { cleanDesc, discount_tag, colors: parsedColors, bundle, variants: parsedVariants, images: parsedImages } = parsedTags;
 
   const [bundleCompanions, setBundleCompanions] = useState([]);
 
@@ -223,8 +223,13 @@ export default function ProductDetail() {
   }, [id]);
 
   // Dynamic variant detection
-  const hasVariants = Boolean(product?.variants && Array.isArray(product.variants) && product.variants.length > 0);
-  const variants = useMemo(() => (hasVariants ? product.variants : []), [hasVariants, product]);
+  const productVariants = useMemo(() => {
+    if (product?.variants && Array.isArray(product.variants) && product.variants.length > 0) return product.variants;
+    if (parsedVariants && Array.isArray(parsedVariants) && parsedVariants.length > 0) return parsedVariants;
+    return [];
+  }, [product, parsedVariants]);
+  const hasVariants = productVariants.length > 0;
+  const variants = productVariants;
 
   // Extract unique sizes from variants
   const availableSizes = useMemo(() => {
@@ -484,13 +489,14 @@ export default function ProductDetail() {
     const set = new Set();
     const commonMain = getProductImage(product);
     if (commonMain) set.add(commonMain);
-    if (Array.isArray(product.images)) {
-      product.images.forEach(img => {
-        if (img && typeof img === 'string' && img.trim() !== '') set.add(img.trim());
-      });
-    }
+    const rawImgs = (Array.isArray(product.images) && product.images.length > 0)
+      ? product.images
+      : (Array.isArray(parsedImages) ? parsedImages : []);
+    rawImgs.forEach(img => {
+      if (img && typeof img === 'string' && img.trim() !== '') set.add(img.trim());
+    });
     return Array.from(set);
-  }, [product, activeVariant]);
+  }, [product, activeVariant, parsedImages]);
 
   const mainImage = allImages[0] || getProductImage(product);
 

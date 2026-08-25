@@ -57,19 +57,53 @@ export function getProductImage(product) {
     : 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80';
 }
 
+function safeDecodeJSON(encodedStr, defaultValue = []) {
+  if (!encodedStr || typeof encodedStr !== 'string') return defaultValue;
+  const trimmed = encodedStr.trim();
+  if (!trimmed) return defaultValue;
+
+  // 1. Try URI decoded JSON
+  try {
+    const val = JSON.parse(decodeURIComponent(trimmed));
+    if (val !== null && val !== undefined) return val;
+  } catch {}
+
+  // 2. Try Direct JSON
+  try {
+    const val = JSON.parse(trimmed);
+    if (val !== null && val !== undefined) return val;
+  } catch {}
+
+  // 3. Try Base64 decoded JSON
+  try {
+    if (typeof atob === 'function') {
+      const decoded = atob(trimmed);
+      const val = JSON.parse(decoded);
+      if (val !== null && val !== undefined) return val;
+    }
+  } catch {}
+
+  return defaultValue;
+}
+
 export function parseProductTags(product) {
   if (!product) return {
     cleanDesc: '', badge: '', discount_tag: '', colors: [],
-    bundle: { enabled: true, companionIds: [], companionId: '', discountPct: 5, subtitle: '' }
+    bundle: { enabled: true, companionIds: [], companionId: '', discountPct: 5, subtitle: '' },
+    variants: [], images: [], video_links: []
   };
 
   let desc = product.description || '';
   let badge = product.badge || product.tag || '';
   let discount_tag = product.discount_tag || '';
-  let colors = product.colors || [];
+  let colors = Array.isArray(product.colors) ? product.colors : [];
   let bundle = { enabled: true, companionIds: [], companionId: '', discountPct: 5, subtitle: '' };
+  let variants = Array.isArray(product.variants) ? product.variants : [];
+  let images = Array.isArray(product.images) ? product.images : [];
+  let video_links = Array.isArray(product.video_links) ? product.video_links : [];
 
-  const bundleMatch = desc.match(/\[BUNDLE:([^\]]*)\]/);
+  // Parse [BUNDLE:enabled|compIds|discount|subtitle]
+  const bundleMatch = desc.match(/\[BUNDLE:([^\]]*)\]/i);
   if (bundleMatch) {
     const bParts = bundleMatch[1].split('|');
     const compStr = bParts[1] || '';
@@ -81,22 +115,81 @@ export function parseProductTags(product) {
       discountPct: bParts[2] ? Number(bParts[2]) : 5,
       subtitle: bParts[3] || ''
     };
-    desc = desc.replace(/\s*\[BUNDLE:[^\]]*\]/g, '').trim();
+    desc = desc.replace(/\s*\[BUNDLE:[^\]]*\]/gi, '').trim();
   }
 
-  const tagMatch = desc.match(/\[TAG:([^\]]*)\]/);
+  // Parse [TAG:badge|discount|colors]
+  const tagMatch = desc.match(/\[TAG:([^\]]*)\]/i);
   if (tagMatch) {
     const parts = tagMatch[1].split('|');
     if (parts[0]) badge = parts[0];
     if (parts[1]) discount_tag = parts[1];
     if (parts[2]) colors = parts[2].split(',').filter(Boolean);
-    desc = desc.replace(/\s*\[TAG:[^\]]*\]/g, '').trim();
-  } else if (badge.includes('|')) {
+    desc = desc.replace(/\s*\[TAG:[^\]]*\]/gi, '').trim();
+  } else if (badge && typeof badge === 'string' && badge.includes('|')) {
     const parts = badge.split('|');
     badge = parts[0] || '';
     discount_tag = parts[1] || '';
     if (parts[2]) colors = parts[2].split(',').filter(Boolean);
   }
 
-  return { cleanDesc: desc, badge, discount_tag, colors, bundle };
+  // Parse [VARIANTS:<json_or_encoded>]
+  const variantsMatch = desc.match(/\[VARIANTS:([^\]]*)\]/i);
+  if (variantsMatch) {
+    const parsedV = safeDecodeJSON(variantsMatch[1], []);
+    if (Array.isArray(parsedV) && parsedV.length > 0 && variants.length === 0) {
+      variants = parsedV;
+    }
+    desc = desc.replace(/\s*\[VARIANTS:[^\]]*\]/gi, '').trim();
+  }
+
+  // Parse [IMAGES:<json_or_encoded>]
+  const imagesMatch = desc.match(/\[IMAGES:([^\]]*)\]/i);
+  if (imagesMatch) {
+    const parsedImg = safeDecodeJSON(imagesMatch[1], []);
+    if (Array.isArray(parsedImg) && parsedImg.length > 0 && images.length === 0) {
+      images = parsedImg;
+    }
+    desc = desc.replace(/\s*\[IMAGES:[^\]]*\]/gi, '').trim();
+  }
+
+  // Parse [VIDEOS:<json_or_encoded>]
+  const videosMatch = desc.match(/\[VIDEOS:([^\]]*)\]/i);
+  if (videosMatch) {
+    const parsedVid = safeDecodeJSON(videosMatch[1], []);
+    if (Array.isArray(parsedVid) && parsedVid.length > 0 && video_links.length === 0) {
+      video_links = parsedVid;
+    }
+    desc = desc.replace(/\s*\[VIDEOS:[^\]]*\]/gi, '').trim();
+  }
+
+  return { cleanDesc: desc, badge, discount_tag, colors, bundle, variants, images, video_links };
 }
+
+export function getProductVariants(product) {
+  if (!product) return [];
+  if (Array.isArray(product.variants) && product.variants.length > 0) {
+    return product.variants;
+  }
+  const parsed = parseProductTags(product);
+  return Array.isArray(parsed.variants) ? parsed.variants : [];
+}
+
+export function getProductGalleryImages(product) {
+  if (!product) return [];
+  if (Array.isArray(product.images) && product.images.length > 0) {
+    return product.images;
+  }
+  const parsed = parseProductTags(product);
+  return Array.isArray(parsed.images) ? parsed.images : [];
+}
+
+export function getProductVideoLinks(product) {
+  if (!product) return [];
+  if (Array.isArray(product.video_links) && product.video_links.length > 0) {
+    return product.video_links;
+  }
+  const parsed = parseProductTags(product);
+  return Array.isArray(parsed.video_links) ? parsed.video_links : [];
+}
+
