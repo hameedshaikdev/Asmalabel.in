@@ -151,8 +151,8 @@ export default function CollectionsEditor({ collectionsData = {}, onChange }) {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px dashed #E2E8F0' }}>
               <div style={{ display: 'flex', gap: '4px' }}>
-                <button onClick={() => handleMove(idx, -1)} disabled={idx === 0} style={{ padding: '4px 8px', border: '1px solid #E2E8F0', borderRadius: '6px', background: '#F8FAFC', cursor: 'pointer' }}><ArrowUp size={13} /></button>
-                <button onClick={() => handleMove(idx, 1)} disabled={idx === currentList.length - 1} style={{ padding: '4px 8px', border: '1px solid #E2E8F0', borderRadius: '6px', background: '#F8FAFC', cursor: 'pointer' }}><ArrowDown size={13} /></button>
+                <button className="reorder-arrow-btn" onClick={() => handleMove(idx, -1)} disabled={idx === 0} title="Move Up"><ArrowUp size={14} /></button>
+                <button className="reorder-arrow-btn" onClick={() => handleMove(idx, 1)} disabled={idx === currentList.length - 1} title="Move Down"><ArrowDown size={14} /></button>
               </div>
 
               <div style={{ display: 'flex', gap: '6px' }}>

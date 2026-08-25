@@ -206,13 +206,11 @@ export default function HeroEditor({ heroData = {}, onChange }) {
               <div className="hero-slide-card-grid">
                 {/* Sort arrows */}
                 <div className="hero-slide-sort">
-                  <button onClick={() => handleMoveSlide(idx, -1)} disabled={idx === 0}
-                    style={{ border: 'none', background: 'none', cursor: idx === 0 ? 'default' : 'pointer', opacity: idx === 0 ? 0.3 : 1, padding: 0, lineHeight: 1 }}>
-                    <ArrowUp size={13} />
+                  <button className="reorder-arrow-btn" onClick={() => handleMoveSlide(idx, -1)} disabled={idx === 0} title="Move Up">
+                    <ArrowUp size={14} />
                   </button>
-                  <button onClick={() => handleMoveSlide(idx, 1)} disabled={idx === slides.length - 1}
-                    style={{ border: 'none', background: 'none', cursor: idx === slides.length - 1 ? 'default' : 'pointer', opacity: idx === slides.length - 1 ? 0.3 : 1, padding: 0, lineHeight: 1 }}>
-                    <ArrowDown size={13} />
+                  <button className="reorder-arrow-btn" onClick={() => handleMoveSlide(idx, 1)} disabled={idx === slides.length - 1} title="Move Down">
+                    <ArrowDown size={14} />
                   </button>
                 </div>
 

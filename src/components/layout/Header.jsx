@@ -60,7 +60,8 @@ export default function Header() {
   const isHome    = location.pathname === '/';
   const isAdmin   = location.pathname.startsWith('/admin');
 
-  const { activeCategory, setActiveCategory, getCartCount, user, setUser } = useApp();
+  const { activeCategory, setActiveCategory, getCartCount, user, setUser, cmsData, cmsDraft } = useApp();
+  const activeCms = cmsDraft || cmsData;
   const [q,        setQ]        = useState('');
   const [dropdown, setDropdown] = useState(false);
   const [drawer,   setDrawer]   = useState(false);
@@ -96,6 +97,56 @@ export default function Header() {
 
   return (
     <>
+      {/* ── Top Announcement Ticker Bar (Fully Customizable from Admin CMS) ── */}
+      {activeCms?.announcementBar?.enabled === true && activeCms?.announcementBar?.text && (
+        <div
+          className="sh-announcement-bar"
+          style={{
+            background: activeCms.announcementBar.bgColor || '#0F172A',
+            color: activeCms.announcementBar.textColor || '#FFFFFF',
+            fontSize: '11.5px',
+            fontWeight: 700,
+            padding: '6px 14px',
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            letterSpacing: '0.2px',
+            position: 'relative',
+            zIndex: 101,
+            overflow: 'hidden',
+          }}
+        >
+          {activeCms.announcementBar.badge && (
+            <span
+              style={{
+                background: activeCms.announcementBar.badgeBg || '#2563EB',
+                color: '#FFFFFF',
+                fontSize: '9px',
+                fontWeight: 900,
+                padding: '2px 6px',
+                borderRadius: '4px',
+                letterSpacing: '0.6px',
+                textTransform: 'uppercase',
+              }}
+            >
+              {activeCms.announcementBar.badge}
+            </span>
+          )}
+          {activeCms.announcementBar.link ? (
+            <a
+              href={activeCms.announcementBar.link}
+              style={{ color: 'inherit', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            >
+              <span>{activeCms.announcementBar.text}</span>
+            </a>
+          ) : (
+            <span>{activeCms.announcementBar.text}</span>
+          )}
+        </div>
+      )}
+
       <header className="sh-header">
         <div className="sh-container">
           <nav className="sh-navbar">

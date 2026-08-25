@@ -4,16 +4,18 @@ import {
   LayoutDashboard, ShoppingBag, Package, Users, BarChart2,
   LogOut, Search, Bell, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   CheckCircle, XCircle, MessageCircle, Phone, Truck,
-  Plus, Edit2, Trash2, Eye, X, Save, Upload,
+  Plus, Edit2, Trash2, Eye, EyeOff, X, Save, Upload,
   AlertTriangle, AlertCircle, Download, Printer,
   Menu, Settings, TrendingUp, ShieldCheck, Home, Sparkles,
-  RotateCcw, Calendar, Copy, Check, Tag, Target, Sliders, Settings2
+  RotateCcw, Calendar, Copy, Check, Tag, Target, Sliders, Settings2,
+  ArrowUp, ArrowDown
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { supabase } from '../config/supabase';
 import { useApp } from '../context/AppContext';
 import { getProductImage, parseProductTags } from '../utils/productImages';
 import { getColorName, getColorSwatch, PRESET_COLORS } from '../utils/colorUtils';
+import { normalizeCategoryKey, DEFAULT_CMS_DATA } from '../utils/cmsDefaults';
 import {
   ToastContainer, ConfirmDialog, CommandPalette,
   OrderSkeleton, ProductSkeleton, EmptyState,
@@ -89,23 +91,24 @@ function printShippingLabel(order) {
 
 /* ── Tailoring & Fashion Default Subcategories ── */
 const DEFAULT_TAILORING_SUBCATS = [
-  { key: 'all', label: 'All Tailoring' },
-  { key: 'machines', label: 'Machines' },
-  { key: 'scissors', label: 'Scissors' },
-  { key: 'threads', label: 'Threads' },
-  { key: 'needles', label: 'Needles' },
-  { key: 'measuring', label: 'Measuring' },
-  { key: 'presser_feet', label: 'Presser Feet' },
+  { key: 'all', label: 'All Tailoring', icon: 'Sparkles' },
+  { key: 'machines', label: 'Tailoring Kit', icon: 'Package' },
+  { key: 'scissors', label: 'Scissors', icon: 'Scissors' },
+  { key: 'threads', label: 'Threads', icon: 'CircleDot' },
+  { key: 'presser_feet', label: 'Presser Feet', icon: 'SlidersHorizontal' },
+  { key: 'needles', label: 'Needles', icon: 'Pin' },
+  { key: 'measuring', label: 'Measuring', icon: 'Ruler' },
+  { key: 'other_tools', label: 'Other Tools', icon: 'Wrench' },
 ];
 
 const DEFAULT_FASHION_SUBCATS = [
-  { key: 'all', label: 'All Fashion & Textile' },
-  { key: 'dresses', label: 'Dresses' },
-  { key: 'tops', label: 'Tops' },
-  { key: 'bottoms', label: 'Bottoms' },
-  { key: 'ethnic', label: 'Ethnic & Kurtis' },
-  { key: 'fabrics', label: 'Fabrics & Textiles' },
-  { key: 'accessories', label: 'Accessories' },
+  { key: 'all', label: 'All Fashion & Textile', icon: 'Sparkles' },
+  { key: 'dresses', label: 'Dresses', icon: 'Crown' },
+  { key: 'tops', label: 'Tops', icon: 'Shirt' },
+  { key: 'bottoms', label: 'Bottoms', icon: 'Layers' },
+  { key: 'ethnic', label: 'Ethnic & Kurtis', icon: 'Sparkles' },
+  { key: 'fabrics', label: 'Fabrics & Textiles', icon: 'Layers' },
+  { key: 'accessories', label: 'Accessories', icon: 'ShoppingBag' },
 ];
 
 /* ── Category & Subcategory Manager Modal ── */
@@ -136,16 +139,29 @@ function CategoryManagerModal({
   const currentCustom = customSubcats[targetCategory] || [];
 
   const uniqueSubcatsMap = new Map();
-  defaults.filter(d => d.key !== 'all').forEach(s => uniqueSubcatsMap.set(s.key, s));
-  currentCustom.forEach(s => uniqueSubcatsMap.set(s.key, s));
+  defaults.filter(d => d.key !== 'all').forEach(s => {
+    const k = normalizeCategoryKey(s.key || s.id);
+    if (k) uniqueSubcatsMap.set(k, { ...s, key: k, id: k });
+  });
+
+  currentCustom.forEach(s => {
+    const k = normalizeCategoryKey(s.key || s.id);
+    if (k && k !== 'all') {
+      uniqueSubcatsMap.set(k, { ...s, key: k, id: k, label: s.label || k });
+    }
+  });
 
   // Scan products in DB for any additional custom subcategories
   products.filter(p => (p.category || '').toLowerCase() === targetCategory).forEach(p => {
-    if (p.sub_category && !uniqueSubcatsMap.has(p.sub_category.toLowerCase())) {
-      const formatted = p.sub_category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      uniqueSubcatsMap.set(p.sub_category.toLowerCase(), {
-        key: p.sub_category.toLowerCase(),
+    const raw = (p.sub_category || '').trim();
+    const k = normalizeCategoryKey(raw);
+    if (k && k !== 'all' && !uniqueSubcatsMap.has(k)) {
+      const formatted = raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      uniqueSubcatsMap.set(k, {
+        key: k,
+        id: k,
         label: formatted,
+        icon: 'Tag',
         isCustom: true
       });
     }
@@ -157,7 +173,7 @@ function CategoryManagerModal({
     e.preventDefault();
     const trimmed = newLabel.trim();
     if (!trimmed) return;
-    const key = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const key = normalizeCategoryKey(trimmed);
     if (!key) return;
 
     if (uniqueSubcatsMap.has(key)) {
@@ -166,8 +182,8 @@ function CategoryManagerModal({
     }
 
     const updated = [
-      ...currentCustom.filter(c => c.key !== key),
-      { key, label: trimmed, isCustom: true }
+      ...subcatsList.filter(c => normalizeCategoryKey(c.key) !== key),
+      { key, id: key, label: trimmed, icon: 'Tag', isCustom: true, active: true }
     ];
 
     onSaveCustomSubcats(targetCategory, updated);
@@ -178,7 +194,7 @@ function CategoryManagerModal({
   const handleRenameSubmit = async (oldKey) => {
     const trimmed = editLabelVal.trim();
     if (!trimmed) return;
-    const newKey = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const newKey = normalizeCategoryKey(trimmed);
     if (!newKey) return;
 
     await onRenameSubcategory(targetCategory, oldKey, newKey, trimmed);
@@ -187,19 +203,34 @@ function CategoryManagerModal({
   };
 
   const handleDelete = (keyToDelete) => {
-    const usageCount = products.filter(p => (p.category || '').toLowerCase() === targetCategory && (p.sub_category || '').toLowerCase() === keyToDelete).length;
+    const normKey = normalizeCategoryKey(keyToDelete);
+    const usageCount = products.filter(p =>
+      (p.category || '').toLowerCase() === targetCategory &&
+      (normalizeCategoryKey(p.sub_category) === normKey || (p.sub_category || '').toLowerCase() === keyToDelete.toLowerCase())
+    ).length;
+
     if (usageCount > 0) {
       toast(`Cannot delete: ${usageCount} product(s) are assigned to this subcategory`, 'error');
       return;
     }
-    const updated = currentCustom.filter(c => c.key !== keyToDelete);
+    const updated = subcatsList.filter(c => normalizeCategoryKey(c.key) !== normKey);
     onSaveCustomSubcats(targetCategory, updated);
     toast('Subcategory removed', 'success');
   };
 
+  const handleMove = (index, direction) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= subcatsList.length) return;
+    const list = [...subcatsList];
+    const temp = list[index];
+    list[index] = list[targetIndex];
+    list[targetIndex] = temp;
+    onSaveCustomSubcats(targetCategory, list);
+  };
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', padding: '16px', boxSizing: 'border-box' }}>
-      <div style={{ background: '#FFFFFF', borderRadius: '18px', width: '100%', maxWidth: '520px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', border: '1px solid #E2E8F0' }}>
+      <div style={{ background: '#FFFFFF', borderRadius: '18px', width: '100%', maxWidth: '540px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', border: '1px solid #E2E8F0' }}>
         
         {/* Header */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#FFFFFF' }}>
@@ -256,7 +287,7 @@ function CategoryManagerModal({
             <input
               value={newLabel}
               onChange={e => setNewLabel(e.target.value)}
-              placeholder={`Add new ${targetCategory === 'tailoring' ? 'tailoring' : 'fashion'} subcategory (e.g. Sarees)...`}
+              placeholder={`Add new ${targetCategory === 'tailoring' ? 'tailoring' : 'fashion'} category chip (e.g. Sarees)...`}
               style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '12.5px', outline: 'none', background: '#FFFFFF' }}
             />
             <button
@@ -271,15 +302,19 @@ function CategoryManagerModal({
           {/* Subcategories List */}
           <div>
             <p style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.4px', margin: '0 0 8px' }}>
-              Subcategories in {targetCategory === 'tailoring' ? 'Tailoring Tools' : "Women's Fashion"} ({subcatsList.length})
+              Categories in {targetCategory === 'tailoring' ? 'Tailoring Tools' : "Women's Fashion"} ({subcatsList.length})
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {subcatsList.map((sc) => {
-                const count = products.filter(p => (p.category || '').toLowerCase() === targetCategory && (p.sub_category || '').toLowerCase() === sc.key).length;
+              {subcatsList.map((sc, index) => {
+                const normKey = normalizeCategoryKey(sc.key || sc.id);
+                const count = products.filter(p =>
+                  (p.category || '').toLowerCase() === targetCategory &&
+                  (normalizeCategoryKey(p.sub_category) === normKey || (p.sub_category || '').toLowerCase() === normKey)
+                ).length;
                 const isEditing = editingKey === sc.key;
 
                 return (
-                  <div key={sc.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: '10px', background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
+                  <div key={normKey} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: '10px', background: '#FFFFFF', border: '1px solid #E2E8F0', gap: '8px' }}>
                     {isEditing ? (
                       <div style={{ display: 'flex', gap: '6px', flex: 1, alignItems: 'center' }}>
                         <input
@@ -305,7 +340,27 @@ function CategoryManagerModal({
                       </div>
                     ) : (
                       <>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                          <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              className="reorder-arrow-btn"
+                              onClick={() => handleMove(index, -1)}
+                              disabled={index === 0}
+                              title="Move Up"
+                            >
+                              <ArrowUp size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              className="reorder-arrow-btn"
+                              onClick={() => handleMove(index, 1)}
+                              disabled={index === subcatsList.length - 1}
+                              title="Move Down"
+                            >
+                              <ArrowDown size={13} />
+                            </button>
+                          </div>
                           <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>{sc.label}</span>
                           <span style={{ fontSize: '10.5px', background: '#F1F5F9', color: '#64748B', fontWeight: 900, padding: '2px 7px', borderRadius: '9999px' }}>
                             {count} {count === 1 ? 'item' : 'items'}
@@ -715,7 +770,7 @@ function ProductModal({ product, onClose, onSave }) {
         price: parseFloat(form.price) || 0,
         original_price: form.original_price ? parseFloat(form.original_price) : null,
         category: form.category,
-        sub_category: form.sub_category,
+        sub_category: form.sub_category ? normalizeCategoryKey(form.sub_category) : null,
         unit: form.unit || null,
         stock: form.stock !== '' && form.stock !== null ? parseInt(form.stock) : null,
         image_url: form.image_url || null,
@@ -950,24 +1005,30 @@ function ProductModal({ product, onClose, onSave }) {
                 <option value="">Select subcategory...</option>
                 {(() => {
                   try {
-                    const stored = localStorage.getItem('asmalabel_custom_subcategories_v1');
-                    const custom = stored ? JSON.parse(stored) : { tailoring: [], fashion: [] };
                     const defaults = form.category === 'tailoring'
                       ? DEFAULT_TAILORING_SUBCATS.filter(d => d.key !== 'all')
                       : DEFAULT_FASHION_SUBCATS.filter(d => d.key !== 'all');
+                    const stored = localStorage.getItem('asmalabel_custom_subcategories_v1');
+                    const custom = stored ? JSON.parse(stored) : { tailoring: [], fashion: [] };
                     const map = new Map();
-                    defaults.forEach(d => map.set(d.key, d.label));
-                    (custom[form.category] || []).forEach(c => map.set(c.key, c.label || c.key));
+                    defaults.forEach(d => {
+                      const k = normalizeCategoryKey(d.key || d.id);
+                      map.set(k, d.label);
+                    });
+                    (custom[form.category] || []).forEach(c => {
+                      const k = normalizeCategoryKey(c.key || c.id);
+                      if (k) map.set(k, c.label || k);
+                    });
                     return Array.from(map.entries()).map(([k, l]) => (
                       <option key={k} value={k}>{l}</option>
                     ));
                   } catch {
-                    return (form.category==='tailoring'?['machines','scissors','threads','needles','measuring','presser_feet']:['dresses','tops','bottoms','ethnic','accessories']).map(s=><option key={s} value={s}>{s}</option>);
+                    return (form.category==='tailoring'?['machines','scissors','threads','needles','measuring','presser_feet','other_tools']:['dresses','tops','bottoms','ethnic','accessories']).map(s=><option key={s} value={s}>{s}</option>);
                   }
                 })()}
                 <option value="custom">✏️ + Type New Subcategory...</option>
               </select>
-              {(customSubCat || (form.sub_category && !['machines','scissors','threads','needles','measuring','presser_feet','dresses','tops','bottoms','ethnic','accessories'].includes(form.sub_category))) && (
+              {(customSubCat || (form.sub_category && !['machines','scissors','threads','needles','measuring','presser_feet','other_tools','dresses','tops','bottoms','ethnic','fabrics','accessories'].includes(normalizeCategoryKey(form.sub_category)))) && (
                 <input placeholder="Type custom subcategory (e.g. blouses)"
                   value={form.sub_category}
                   onChange={e => setForm(p => ({ ...p, sub_category: e.target.value }))}
@@ -2267,7 +2328,7 @@ function QuickActions({ onAddProduct, onExportOrders, onRefresh }) {
 /* ── Main Admin Panel ─────────────────────────────────────── */
 export default function AdminPanel() {
   const navigate = useNavigate();
-  const { user, setUser } = useApp();
+  const { user, setUser, cmsData, cmsDraft, updateCmsDraft, publishCms } = useApp();
 
   /* ── state ── */
   const [page,       setPage]       = useState('orders');   // orders | products | coupons | cms | more
@@ -2288,6 +2349,10 @@ export default function AdminPanel() {
   // ── CUSTOM SUBCATEGORIES STATE & MODAL ──
   const [customSubcats, setCustomSubcats] = useState(() => {
     try {
+      const cmsSubs = cmsDraft?.subcategories || cmsData?.subcategories;
+      if (cmsSubs && (cmsSubs.tailoring?.length || cmsSubs.fashion?.length)) {
+        return cmsSubs;
+      }
       const stored = localStorage.getItem('asmalabel_custom_subcategories_v1');
       return stored ? JSON.parse(stored) : { tailoring: [], fashion: [] };
     } catch {
@@ -2296,52 +2361,132 @@ export default function AdminPanel() {
   });
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
 
-  const handleSaveCustomSubcats = (cat, list) => {
-    const updated = { ...customSubcats, [cat]: list };
-    setCustomSubcats(updated);
+  const handleSaveCustomSubcats = async (cat, list) => {
+    const cleanList = list.map(item => ({
+      id: normalizeCategoryKey(item.key || item.id),
+      key: normalizeCategoryKey(item.key || item.id),
+      label: item.label,
+      icon: item.icon || 'Tag',
+      active: item.active !== false,
+      isCustom: item.isCustom
+    }));
+
+    const updatedCustom = { ...customSubcats, [cat]: cleanList };
+    setCustomSubcats(updatedCustom);
     try {
-      localStorage.setItem('asmalabel_custom_subcategories_v1', JSON.stringify(updated));
+      localStorage.setItem('asmalabel_custom_subcategories_v1', JSON.stringify(updatedCustom));
     } catch { }
+
+    if (updateCmsDraft) {
+      const currentCmsSubs = cmsDraft?.subcategories || DEFAULT_CMS_DATA.subcategories;
+      const newCmsSubs = {
+        ...currentCmsSubs,
+        [cat]: cleanList
+      };
+      updateCmsDraft({ subcategories: newCmsSubs });
+
+      try {
+        const currentContent = cmsDraft || cmsData || DEFAULT_CMS_DATA;
+        const newContent = {
+          ...currentContent,
+          subcategories: newCmsSubs
+        };
+        await supabase.from('homepage_cms').upsert({
+          id: 'published',
+          content: newContent,
+          updated_at: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error('Error saving subcategories to Supabase:', err);
+      }
+    }
   };
 
   const handleRenameSubcategory = async (cat, oldKey, newKey, newLabel) => {
-    const affectedProducts = products.filter(p => (p.category || '').toLowerCase() === cat && (p.sub_category || '').toLowerCase() === oldKey);
+    const normOld = normalizeCategoryKey(oldKey);
+    const normNew = normalizeCategoryKey(newKey);
+
+    const affectedProducts = products.filter(p =>
+      (p.category || '').toLowerCase() === cat &&
+      (normalizeCategoryKey(p.sub_category) === normOld || (p.sub_category || '').toLowerCase() === oldKey.toLowerCase())
+    );
+
     if (affectedProducts.length > 0) {
-      const { error } = await supabase
-        .from('products')
-        .update({ sub_category: newKey })
-        .eq('category', cat)
-        .eq('sub_category', oldKey);
-      if (error) {
-        toast(`Error updating products: ${error.message}`, 'error');
-        return;
+      for (const p of affectedProducts) {
+        const { error } = await supabase
+          .from('products')
+          .update({ sub_category: normNew })
+          .eq('id', p.id);
+        if (error) {
+          toast(`Error updating product ${p.name}: ${error.message}`, 'error');
+        }
       }
     }
 
-    const currentList = customSubcats[cat] || [];
-    const updatedList = [
-      ...currentList.filter(c => c.key !== oldKey && c.key !== newKey),
-      { key: newKey, label: newLabel, isCustom: true }
-    ];
-    handleSaveCustomSubcats(cat, updatedList);
-    toast(`Renamed to "${newLabel}" (${affectedProducts.length} products updated)`, 'success');
+    const currentSubcats = getSubcategoriesList(cat).filter(c => c.key !== 'all');
+    const updatedList = currentSubcats.map(c => {
+      if (normalizeCategoryKey(c.key) === normOld) {
+        return { ...c, key: normNew, id: normNew, label: newLabel };
+      }
+      return c;
+    });
+
+    await handleSaveCustomSubcats(cat, updatedList);
+    toast(`Renamed to "${newLabel}" (${affectedProducts.length} product(s) updated)`, 'success');
     fetchProducts();
   };
 
   const getSubcategoriesList = (categoryKey) => {
+    const cmsList = (cmsDraft?.subcategories?.[categoryKey] || cmsData?.subcategories?.[categoryKey] || []);
     const defaults = categoryKey === 'tailoring' ? DEFAULT_TAILORING_SUBCATS : DEFAULT_FASHION_SUBCATS;
     const customs = customSubcats[categoryKey] || [];
     const map = new Map();
 
-    defaults.forEach(d => map.set(d.key, d));
-    customs.forEach(c => map.set(c.key, c));
+    const baseList = cmsList.length > 0 ? cmsList : defaults;
+    baseList.forEach(item => {
+      const k = normalizeCategoryKey(item.key || item.id);
+      if (k) {
+        map.set(k, {
+          key: k,
+          id: k,
+          label: item.label || item.name || k,
+          icon: item.icon || 'Tag',
+          active: item.active !== false,
+          isCustom: !defaults.some(d => normalizeCategoryKey(d.key) === k)
+        });
+      }
+    });
+
+    customs.forEach(c => {
+      const k = normalizeCategoryKey(c.key || c.id);
+      if (k) {
+        map.set(k, {
+          key: k,
+          id: k,
+          label: c.label || c.name || k,
+          icon: c.icon || 'Tag',
+          active: c.active !== false,
+          isCustom: true
+        });
+      }
+    });
+
+    if (!map.has('all')) {
+      const allLabel = categoryKey === 'tailoring' ? 'All Tailoring' : "All Fashion";
+      map.set('all', { key: 'all', id: 'all', label: allLabel, icon: 'Sparkles', active: true });
+    }
 
     products.filter(p => (p.category || '').toLowerCase() === categoryKey).forEach(p => {
-      if (p.sub_category && !map.has(p.sub_category.toLowerCase())) {
-        const formatted = p.sub_category.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
-        map.set(p.sub_category.toLowerCase(), {
-          key: p.sub_category.toLowerCase(),
+      const raw = (p.sub_category || '').trim();
+      const normKey = normalizeCategoryKey(raw);
+      if (normKey && normKey !== 'all' && !map.has(normKey)) {
+        const formatted = raw.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+        map.set(normKey, {
+          key: normKey,
+          id: normKey,
           label: formatted,
+          icon: 'Tag',
+          active: true,
           isCustom: true
         });
       }
@@ -2349,6 +2494,27 @@ export default function AdminPanel() {
 
     return Array.from(map.values());
   };
+
+  // Auto-normalize any unnormalized product subcategories in DB
+  useEffect(() => {
+    if (!products || products.length === 0) return;
+    const messyProducts = products.filter(p => {
+      const raw = p.sub_category || '';
+      const norm = normalizeCategoryKey(raw);
+      return raw !== norm && norm !== '';
+    });
+    if (messyProducts.length > 0) {
+      (async () => {
+        let changed = false;
+        for (const p of messyProducts) {
+          const norm = normalizeCategoryKey(p.sub_category);
+          const { error } = await supabase.from('products').update({ sub_category: norm }).eq('id', p.id);
+          if (!error) changed = true;
+        }
+        if (changed) fetchProducts();
+      })();
+    }
+  }, [products.length]);
 
   // ── COUPON MANAGEMENT STATE ──
   const DEFAULT_COUPONS = [
@@ -3018,14 +3184,16 @@ buildPages(4);
   const tailoringProducts = allTailoringList.filter(p => {
     const s = search.toLowerCase().trim();
     const ms = !s || (p.name || '').toLowerCase().includes(s) || (p.sub_category || '').toLowerCase().includes(s);
-    const mSub = tailoringSubCat === 'all' || (p.sub_category || '').toLowerCase() === tailoringSubCat.toLowerCase();
+    const normTab = normalizeCategoryKey(tailoringSubCat);
+    const mSub = normTab === 'all' || normalizeCategoryKey(p.sub_category) === normTab || (p.sub_category || '').toLowerCase() === tailoringSubCat.toLowerCase();
     return ms && mSub;
   });
 
   const fashionProducts = allFashionList.filter(p => {
     const s = search.toLowerCase().trim();
     const ms = !s || (p.name || '').toLowerCase().includes(s) || (p.sub_category || '').toLowerCase().includes(s);
-    const mSub = fashionSubCat === 'all' || (p.sub_category || '').toLowerCase() === fashionSubCat.toLowerCase();
+    const normTab = normalizeCategoryKey(fashionSubCat);
+    const mSub = normTab === 'all' || normalizeCategoryKey(p.sub_category) === normTab || (p.sub_category || '').toLowerCase() === fashionSubCat.toLowerCase();
     return ms && mSub;
   });
 
@@ -3473,14 +3641,15 @@ buildPages(4);
                 {getSubcategoriesList(productTab).map(sc => {
                   const isTailoring = productTab === 'tailoring';
                   const currentList = isTailoring ? allTailoringList : allFashionList;
-                  const count = sc.key === 'all'
+                  const normKey = normalizeCategoryKey(sc.key || sc.id);
+                  const count = normKey === 'all'
                     ? currentList.length
-                    : currentList.filter(p => (p.sub_category || '').toLowerCase() === sc.key).length;
-                  const active = (isTailoring ? tailoringSubCat : fashionSubCat) === sc.key;
+                    : currentList.filter(p => normalizeCategoryKey(p.sub_category) === normKey || (p.sub_category || '').toLowerCase() === normKey).length;
+                  const active = (isTailoring ? normalizeCategoryKey(tailoringSubCat) : normalizeCategoryKey(fashionSubCat)) === normKey;
 
                   return (
                     <button
-                      key={sc.key}
+                      key={normKey}
                       onClick={() => isTailoring ? setTailoringSubCat(sc.key) : setFashionSubCat(sc.key)}
                       style={{
                         padding: '6px 12px',

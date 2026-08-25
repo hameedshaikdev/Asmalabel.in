@@ -2783,14 +2783,17 @@ html, body, #root {
     width: 100% !important;
     box-sizing: border-box !important;
   }
-  .cms-main-grid input[type="text"],
-  .cms-main-grid input[type="number"],
-  .cms-main-grid input[type="datetime-local"],
-  .cms-main-grid textarea,
-  .cms-main-grid select {
+  .cms-section-content {
     width: 100% !important;
     max-width: 100% !important;
+    overflow-x: hidden !important;
     box-sizing: border-box !important;
+  }
+  .cms-section-content input,
+  .cms-section-content select,
+  .cms-section-content textarea {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
   }
 }
 
@@ -3315,15 +3318,63 @@ img, video, svg {
     min-height: 44px !important;
     padding: 10px 16px !important;
   }
-  button {
+  button:not(.reorder-arrow-btn):not(.cms-arrow-btn):not([title*="Move"]):not([title*="Up"]):not([title*="Down"]) {
     min-height: 44px;
     box-sizing: border-box;
   }
-  /* inline icon buttons stay smaller */
+  /* inline icon buttons and arrow buttons stay compact */
   .sh-icon-btn, .pd-qty-circle, .pd-arrow-nav,
-  .carousel-arrow, .sh-drawer-icon-box {
+  .carousel-arrow, .sh-drawer-icon-box,
+  .reorder-arrow-btn, .cms-arrow-btn,
+  .hero-slide-sort button,
+  button[title*="Move"],
+  button[title*="Up"],
+  button[title*="Down"] {
     min-height: unset !important;
+    height: auto;
   }
+}
+
+/* ── Global Reorder Arrow Buttons in Admin / CMS (Desktop & Mobile) ── */
+.reorder-arrow-btn,
+.cms-arrow-btn,
+button[title*="Move Up"],
+button[title*="Move Down"] {
+  min-height: unset !important;
+  max-height: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 7px !important;
+  background: #F1F5F9 !important;
+  border: 1px solid #CBD5E1 !important;
+  color: #334155 !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+}
+
+.reorder-arrow-btn:disabled,
+button[title*="Move Up"]:disabled,
+button[title*="Move Down"]:disabled {
+  opacity: 0.25 !important;
+  cursor: default !important;
+  background: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+}
+
+.reorder-arrow-btn svg,
+button[title*="Move Up"] svg,
+button[title*="Move Down"] svg {
+  width: 14px !important;
+  height: 14px !important;
+  stroke-width: 2.2px !important;
 }
 
 /* ─── 14. FORMS — all inputs 100% width, 16px to stop iOS zoom ─── */

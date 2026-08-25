@@ -10,7 +10,19 @@ import {
   Crown,
   Shirt,
   Layers,
-  ShoppingBag
+  ShoppingBag,
+  Tag,
+  Grid,
+  Box,
+  Compass,
+  Palette,
+  Feather,
+  Flame,
+  Zap,
+  Star,
+  Bookmark,
+  Cpu,
+  Gift
 } from 'lucide-react';
 
 const ICON_MAP = {
@@ -25,7 +37,19 @@ const ICON_MAP = {
   Crown,
   Shirt,
   Layers,
-  ShoppingBag
+  ShoppingBag,
+  Tag,
+  Grid,
+  Box,
+  Compass,
+  Palette,
+  Feather,
+  Flame,
+  Zap,
+  Star,
+  Bookmark,
+  Cpu,
+  Gift
 };
 
 const CategoryFilter = ({ categories = [], selected, onSelect }) => (

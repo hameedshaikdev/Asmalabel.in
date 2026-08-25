@@ -6,7 +6,10 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import HeroEditor from './HeroEditor';
+import AnnouncementBarEditor from './AnnouncementBarEditor';
+import TrustBadgesEditor from './TrustBadgesEditor';
 import FlashDealsEditor from './FlashDealsEditor';
+import CategoryFilterEditor from './CategoryFilterEditor';
 import CollectionsEditor from './CollectionsEditor';
 import NewArrivalsEditor from './NewArrivalsEditor';
 import TopPicksEditor from './TopPicksEditor';
@@ -30,9 +33,12 @@ export default function HomepageManager({ products = [] }) {
   const [saving, setSaving] = useState(false);
 
   const navItems = [
+    { key: 'announcement', label: 'Top Announcement Bar', icon: Layers },
     { key: 'hero', label: 'Hero Section', icon: Sparkles },
+    { key: 'trust', label: 'Trust Badges Strip', icon: CheckCircle },
+    { key: 'filter', label: 'Category Filter Bar', icon: Layers },
     { key: 'flash', label: 'Flash Deals', icon: Zap },
-    { key: 'collections', label: 'Collections', icon: Grid },
+    { key: 'collections', label: 'Collections Grid', icon: Grid },
     { key: 'arrivals', label: 'New Arrivals', icon: Sparkles },
     { key: 'picks', label: 'Top Picks', icon: Star },
     { key: 'banners', label: 'Promo Banners', icon: Layers },
@@ -168,10 +174,32 @@ export default function HomepageManager({ products = [] }) {
 
         {/* Section View */}
         <div className="cms-section-content">
+          {activeSection === 'announcement' && (
+            <AnnouncementBarEditor
+              barData={cmsDraft.announcementBar}
+              onChange={val => updateCmsDraft({ announcementBar: val })}
+            />
+          )}
+
           {activeSection === 'hero' && (
             <HeroEditor
               heroData={cmsDraft.hero}
               onChange={val => updateCmsDraft({ hero: val })}
+            />
+          )}
+
+          {activeSection === 'trust' && (
+            <TrustBadgesEditor
+              badgesData={cmsDraft.trustBadges}
+              onChange={val => updateCmsDraft({ trustBadges: val })}
+            />
+          )}
+
+          {activeSection === 'filter' && (
+            <CategoryFilterEditor
+              subcategoriesData={cmsDraft.subcategories}
+              products={products}
+              onChange={val => updateCmsDraft({ subcategories: val })}
             />
           )}
 

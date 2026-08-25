@@ -126,18 +126,7 @@ export const DEFAULT_CMS_DATA = {
     displayStyle: 'slider',
   },
 
-  banners: [
-    {
-      id: 'banner-1',
-      title: 'Special Tailoring Equipment Discount',
-      subtitle: 'Get up to 25% off on industrial sewing machines this week.',
-      btnText: 'Claim Offer',
-      btnLink: '#products',
-      imageUrl: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200',
-      active: true,
-      position: 'middle',
-    }
-  ],
+  banners: [],
 
   footer: {
     aboutText: 'Asmalabel — Premium Tailoring Tools & Women Fashion Store in Nellore, Andhra Pradesh.',
@@ -162,5 +151,52 @@ export const DEFAULT_CMS_DATA = {
     canonicalUrl: "https://asmalabel.in/",
   },
 
+  subcategories: {
+    tailoring: [
+      { id: 'all',          label: 'All',           icon: 'Sparkles',          active: true },
+      { id: 'machines',     label: 'Tailoring Kit',  icon: 'Package',           active: true },
+      { id: 'scissors',     label: 'Scissors',       icon: 'Scissors',          active: true },
+      { id: 'threads',      label: 'Threads',        icon: 'CircleDot',         active: true },
+      { id: 'presser_feet', label: 'Presser Feet',   icon: 'SlidersHorizontal', active: true },
+      { id: 'needles',      label: 'Needles',        icon: 'Pin',               active: true },
+      { id: 'measuring',    label: 'Measuring',      icon: 'Ruler',             active: true },
+      { id: 'other_tools',  label: 'Other Tools',    icon: 'Wrench',            active: true },
+    ],
+    fashion: [
+      { id: 'all',         label: 'All',         icon: 'Sparkles',    active: true },
+      { id: 'dresses',     label: 'Dresses',     icon: 'Crown',       active: true },
+      { id: 'tops',        label: 'Tops',        icon: 'Shirt',       active: true },
+      { id: 'bottoms',     label: 'Bottoms',     icon: 'Layers',      active: true },
+      { id: 'ethnic',      label: 'Ethnic',      icon: 'Sparkles',    active: true },
+      { id: 'accessories', icon: 'ShoppingBag', active: true },
+    ]
+  },
+
+  announcementBar: {
+    enabled: false,
+    text: "✨ Free Express Delivery on orders above ₹499 | Direct Atelier Quality | COD & UPI Accepted",
+    bgColor: "#0F172A",
+    textColor: "#FFFFFF",
+    badge: "OFFER",
+    badgeBg: "#2563EB",
+    link: "#products",
+    speed: 25,
+  },
+
+  trustBadges: {
+    enabled: false,
+    items: [
+      { id: '1', icon: 'Truck', title: 'Free Delivery', desc: 'On orders above ₹499 across India', active: true },
+      { id: '2', icon: 'Shield', title: '100% Genuine Atelier', desc: 'Direct factory & artisan sourcing', active: true },
+      { id: '3', icon: 'Zap', title: '24-48h Fast Dispatch', desc: 'Trackable express delivery', active: true },
+      { id: '4', icon: 'Heart', title: 'Dedicated Support', desc: 'WhatsApp sizing & order help', active: true },
+    ]
+  },
+
   mediaLibrary: [],
+};
+
+export const normalizeCategoryKey = (str) => {
+  if (!str) return '';
+  return str.toString().trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 };

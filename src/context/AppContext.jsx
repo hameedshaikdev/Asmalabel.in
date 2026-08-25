@@ -163,7 +163,18 @@ export function AppProvider({ children }) {
     // Purge fake unsplash mock media items if present from old cache
     mediaLib = mediaLib.filter(m => !m.url?.includes('images.unsplash.com/photo-1617606002806'));
 
-    let tailoringCols = DEFAULT_CMS_DATA.collections.tailoring;
+    const tailoringCols = Array.isArray(data.collections?.tailoring) && data.collections.tailoring.length > 0
+      ? data.collections.tailoring
+      : DEFAULT_CMS_DATA.collections.tailoring;
+
+    const subcategoriesData = {
+      tailoring: Array.isArray(data.subcategories?.tailoring) && data.subcategories.tailoring.length > 0
+        ? data.subcategories.tailoring
+        : DEFAULT_CMS_DATA.subcategories.tailoring,
+      fashion: Array.isArray(data.subcategories?.fashion) && data.subcategories.fashion.length > 0
+        ? data.subcategories.fashion
+        : DEFAULT_CMS_DATA.subcategories.fashion,
+    };
 
     const updated = {
       hero: {
@@ -175,6 +186,9 @@ export function AppProvider({ children }) {
         tailoring: tailoringCols,
         fashion: Array.isArray(data.collections?.fashion) ? data.collections.fashion : DEFAULT_CMS_DATA.collections.fashion
       },
+      subcategories: subcategoriesData,
+      announcementBar: { ...DEFAULT_CMS_DATA.announcementBar, ...(data.announcementBar || {}) },
+      trustBadges: { ...DEFAULT_CMS_DATA.trustBadges, ...(data.trustBadges || {}) },
       newArrivals: { ...DEFAULT_CMS_DATA.newArrivals, ...(data.newArrivals || {}) },
       topPicks: { ...DEFAULT_CMS_DATA.topPicks, ...(data.topPicks || {}) },
       banners: Array.isArray(data.banners) ? data.banners : DEFAULT_CMS_DATA.banners,

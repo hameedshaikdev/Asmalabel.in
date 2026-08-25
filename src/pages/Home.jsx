@@ -13,7 +13,12 @@ import ProductCard from '../components/products/ProductCard';
 import CategoryFilter from '../components/products/CategoryFilter';
 import QuickViewModal from '../components/products/QuickViewModal';
 import { getProductImage, parseProductTags } from '../utils/productImages';
+import { normalizeCategoryKey, DEFAULT_CMS_DATA } from '../utils/cmsDefaults';
 import SEO from '../components/common/SEO';
+
+const TRUST_ICON_MAP = {
+  Truck, Shield, Zap, Heart, Star, Users, Clock, Package, Sparkles
+};
 
 /* ─── Content ─────────────────────────────────────────────── */
 const CONTENT = {
@@ -733,7 +738,6 @@ export default function Home() {
 
   const [sortBy,           setSortBy]           = useState('featured');
   const [quickViewProduct, setQuickViewProduct] = useState(null);
-  const [products, setProducts]       = useState([]);
   const [loading,  setLoading]        = useState(true);
   const [sub,      setSub]            = useState('all');
   const [newArrivals, setNewArrivals] = useState([]);
@@ -782,22 +786,70 @@ export default function Home() {
     if (activeCms?.seo?.metaTitle) document.title = activeCms.seo.metaTitle;
   }, [activeCms]);
 
+  const [allCategoryProducts, setAllCategoryProducts] = useState([]);
+
   useEffect(() => { setSub('all'); }, [activeCategory]);
 
+  // Fetch all active products for the current active category
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        let q = supabase.from('products').select('*')
-          .eq('category', activeCategory).eq('active', true);
-        if (sub !== 'all')      q = q.eq('sub_category', sub);
-        if (searchQuery.trim()) q = q.ilike('name', `%${searchQuery.trim()}%`);
-        const { data }   = await q.order('created_at', { ascending: false });
-        setProducts(data || []);
-      } catch(e) { console.error(e); }
-      finally { setLoading(false); }
+        const { data } = await supabase
+          .from('products')
+          .select('*')
+          .eq('category', activeCategory)
+          .eq('active', true)
+          .order('created_at', { ascending: false });
+        setAllCategoryProducts(data || []);
+      } catch (e) {
+        console.error('Error loading products for category:', e);
+      } finally {
+        setLoading(false);
+      }
     })();
-  }, [activeCategory, sub, searchQuery]);
+  }, [activeCategory]);
+
+  // Compute dynamic subcategories: merged from CMS settings + defaults + any custom product subcategories
+  const activeSubcategories = (() => {
+    const cmsList = activeCms?.subcategories?.[activeCategory]
+      || CONTENT[activeCategory]?.subs
+      || DEFAULT_CMS_DATA.subcategories[activeCategory];
+
+    const list = [...(cmsList || [])];
+    const seen = new Set(list.map(s => normalizeCategoryKey(s.id || s.key)));
+
+    // Ensure 'all' chip is always at index 0
+    if (!seen.has('all')) {
+      list.unshift({ id: 'all', label: 'All', icon: 'Sparkles', active: true });
+      seen.add('all');
+    }
+
+    // Dynamic scan: append any active product subcategory not present in the list
+    (allCategoryProducts || []).forEach(p => {
+      const raw = (p.sub_category || '').trim();
+      const norm = normalizeCategoryKey(raw);
+      if (norm && !seen.has(norm)) {
+        seen.add(norm);
+        const label = raw.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+        list.push({ id: norm, label, icon: 'Tag', active: true });
+      }
+    });
+
+    return list.filter(s => s.active !== false);
+  })();
+
+  // Filter products by subcategory and search query with resilient normalization
+  const products = (allCategoryProducts || []).filter(p => {
+    const s = searchQuery.trim().toLowerCase();
+    if (s && !(p.name || '').toLowerCase().includes(s) && !(p.sub_category || '').toLowerCase().includes(s)) {
+      return false;
+    }
+    if (sub === 'all') return true;
+    const normSub = normalizeCategoryKey(sub);
+    const prodNorm = normalizeCategoryKey(p.sub_category);
+    return prodNorm === normSub || (p.sub_category || '').trim().toLowerCase() === sub.trim().toLowerCase();
+  });
 
   // Fetch featured sections according to CMS configuration
   useEffect(() => {
@@ -1276,6 +1328,68 @@ export default function Home() {
         </motion.div>
       </div>
 
+      {/* ══ TRUST BADGES / VALUE PROPS HORIZONTAL STRIP (Fully Customizable from CMS) ════════════════════ */}
+      {activeCms?.trustBadges?.enabled === true && (
+        <div style={{ background: '#FFFFFF', borderBottom: '1px solid #F1F5F9', padding: '16px 0', overflow: 'hidden' }}>
+          <div className="sh-container">
+            <div
+              className="sh-trust-strip sh-scroll-hide"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                gap: '12px',
+                alignItems: 'center',
+              }}
+            >
+              {(activeCms?.trustBadges?.items || DEFAULT_CMS_DATA.trustBadges?.items || []).filter(item => item.active !== false).map((item) => {
+                const IconComp = TRUST_ICON_MAP[item.icon] || Shield;
+                return (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 14px',
+                      borderRadius: '12px',
+                      background: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '10px',
+                        background: '#FFFFFF',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                        border: '1px solid #E2E8F0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#0F172A',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <IconComp size={18} color="#0F172A" />
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <h4 style={{ fontSize: '12.5px', fontWeight: 800, color: '#0F172A', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {item.title}
+                      </h4>
+                      <p style={{ fontSize: '11px', color: '#64748B', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {item.desc}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ══ FLASH DEALS (if enabled & has discounted/selected products) ═════════ */}
       {activeCms?.flashDeals?.enabled !== false && flashDeals.length > 0 && (
         <div style={{background:'linear-gradient(135deg,#1A1A2E,#0F3460)',padding:'80px 0'}}>
@@ -1352,7 +1466,7 @@ export default function Home() {
         {/* Unified Category & Sort Toolbar */}
         <div ref={filterRef} className="sh-products-toolbar">
           {/* Row 1: Subcategory filter chips */}
-          <CategoryFilter categories={c.subs} selected={sub} onSelect={setSub} />
+          <CategoryFilter categories={activeSubcategories} selected={sub} onSelect={setSub} />
 
           {/* Row 2: Inline minimalist Sort controls (Left-aligned) */}
           {!loading && products.length > 0 && (
@@ -1440,6 +1554,84 @@ export default function Home() {
           </Reveal>
         )}
       </div>
+
+      {/* ══ PROMOTIONAL BANNER STRIP (Fully Customizable from CMS) ════════════════════ */}
+      {activeCms?.banners && activeCms.banners.filter(b => b.active !== false).length > 0 && !searchQuery && (
+        <div style={{ padding: '24px 0', background: '#FAFAFA' }}>
+          <div className="sh-container">
+            {activeCms.banners.filter(b => b.active !== false).map((b) => (
+              <div
+                key={b.id}
+                style={{
+                  position: 'relative',
+                  borderRadius: '24px',
+                  overflow: 'hidden',
+                  minHeight: '180px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '32px 36px',
+                  color: '#FFFFFF',
+                  background: 'linear-gradient(135deg, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.7) 100%)',
+                  boxShadow: '0 12px 36px rgba(0,0,0,0.08)',
+                  marginBottom: '16px',
+                }}
+              >
+                {b.imageUrl && (
+                  <img
+                    src={b.imageUrl}
+                    alt={b.title}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      zIndex: 0,
+                    }}
+                    onError={e => { e.target.style.display = 'none'; }}
+                  />
+                )}
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.65) 60%, rgba(15,23,42,0.2) 100%)', zIndex: 1 }} />
+                <div style={{ position: 'relative', zIndex: 2, maxWidth: '540px' }}>
+                  <span style={{ fontSize: '10.5px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', color: '#60A5FA', display: 'block', marginBottom: '8px' }}>
+                    Special Promotion
+                  </span>
+                  <h3 style={{ fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 900, margin: '0 0 8px', color: '#FFFFFF', lineHeight: 1.2 }}>
+                    {b.title}
+                  </h3>
+                  {b.subtitle && (
+                    <p style={{ fontSize: '13px', color: '#E2E8F0', margin: '0 0 16px', lineHeight: 1.5 }}>
+                      {b.subtitle}
+                    </p>
+                  )}
+                  {b.btnText && (
+                    <a
+                      href={b.btnLink || '#products'}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '9px 18px',
+                        borderRadius: '9999px',
+                        background: '#FFFFFF',
+                        color: '#0F172A',
+                        fontWeight: 900,
+                        fontSize: '12.5px',
+                        textDecoration: 'none',
+                        boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+                        transition: 'transform 0.15s ease',
+                      }}
+                    >
+                      <span>{b.btnText}</span>
+                      <ArrowRight size={14} />
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ══ BEST SELLERS / TOP PICKS ════════════════════════════════════ */}
       {activeCms?.topPicks?.enabled !== false && bestSellers.length > 0 && !searchQuery && (
