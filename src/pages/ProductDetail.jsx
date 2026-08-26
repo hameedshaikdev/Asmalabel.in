@@ -18,18 +18,22 @@ import ProductDescription from '../components/products/ProductDescription';
 import SEO from '../components/common/SEO';
 import ProductVideoPlayer from '../components/products/ProductVideoPlayer';
 
+// ── Module-Level In-Memory SWR Cache for 0ms Instant Product Navigation ──
+const productDetailCache = new Map();
+
 export default function ProductDetail() {
   const { id }       = useParams();
   const navigate     = useNavigate();
   const { addToCart, addToWishlist, removeFromWishlist, isInWishlist, showToast } = useApp();
 
-  const [product,        setProduct]        = useState(null);
-  const [related,        setRelated]        = useState([]);
-  const [addons,         setAddons]         = useState([]);
+  const cached = id ? productDetailCache.get(id) : null;
+  const [product,        setProduct]        = useState(() => cached?.product || null);
+  const [related,        setRelated]        = useState(() => cached?.related || []);
+  const [addons,         setAddons]         = useState(() => cached?.addons || []);
   const [fbtAdded,       setFbtAdded]       = useState(false);
   const [cardAddedId,    setCardAddedId]    = useState(null);
   const [shared,         setShared]         = useState(false);
-  const [loading,        setLoading]        = useState(true);
+  const [loading,        setLoading]        = useState(() => !cached?.product);
   const [quantity,       setQuantity]       = useState(1);
   const [added,          setAdded]          = useState(false);
   const [selImg,         setSelImg]         = useState(0);
@@ -52,6 +56,7 @@ export default function ProductDetail() {
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const dragDistance = useRef(0);
+  const lastTapRef = useRef(0);
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [zoomScale,    setZoomScale]    = useState(1);
@@ -197,29 +202,71 @@ export default function ProductDetail() {
 
   useEffect(() => {
     if (!id) return;
-    (async () => {
+    let isCancelled = false;
+
+    // 1. Instant Cache Hit (0ms delay)
+    if (productDetailCache.has(id)) {
+      const entry = productDetailCache.get(id);
+      setProduct(entry.product);
+      setRelated(entry.related || []);
+      setAddons(entry.addons || []);
+      setLoading(false);
+    } else {
       setLoading(true);
+    }
+
+    // 2. Silent background SWR fetch / revalidate
+    (async () => {
       try {
-        const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+        const { data: prodData, error } = await supabase.from('products').select('*').eq('id', id).single();
         if (error) throw error;
-        setProduct(data);
+        if (isCancelled) return;
 
-        if (data) {
-          const { data: rel } = await supabase.from('products').select('*')
-            .eq('category', data.category).eq('active', true)
-            .neq('id', id).limit(10);
-          setRelated(rel || []);
+        if (prodData) {
+          // Fetch related and addons concurrently
+          const [relRes, addsRes] = await Promise.all([
+            supabase.from('products').select('*')
+              .eq('category', prodData.category)
+              .eq('active', true)
+              .neq('id', id)
+              .limit(10),
+            supabase.from('products').select('*')
+              .eq('active', true)
+              .neq('id', id)
+              .limit(2)
+          ]);
 
-          const { data: adds } = await supabase.from('products').select('*')
-            .eq('active', true).neq('id', id).limit(2);
-          setAddons(adds || []);
+          const relData = relRes.data || [];
+          const addsData = addsRes.data || [];
+
+          if (!isCancelled) {
+            setProduct(prodData);
+            setRelated(relData);
+            setAddons(addsData);
+            productDetailCache.set(id, {
+              product: prodData,
+              related: relData,
+              addons: addsData
+            });
+
+            // Pre-seed cache for related products for 0ms transitions
+            relData.forEach(rp => {
+              if (rp && rp.id && !productDetailCache.has(rp.id)) {
+                productDetailCache.set(rp.id, { product: rp, related: [], addons: [] });
+              }
+            });
+          }
         }
       } catch (err) {
-        console.error(err);
+        console.error('ProductDetail fetch error:', err);
       } finally {
-        setLoading(false);
+        if (!isCancelled) setLoading(false);
       }
     })();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [id]);
 
   // Dynamic variant detection
@@ -523,31 +570,48 @@ export default function ProductDetail() {
     };
   }, [allImages.length]);
 
-  /* ── Luxury Brand Loading Spinner ── */
+  /* ── Progressive Flipkart / Amazon Style Product Detail Skeleton ── */
   if (loading) {
     return (
-      <div style={{
-        minHeight: '65vh', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', background: '#F8FAFC', gap: '16px'
-      }}>
-        <div style={{
-          position: 'relative', width: '56px', height: '56px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div style={{
-            position: 'absolute', inset: 0, borderRadius: '50%',
-            border: '3.5px solid #E2E8F0', borderTop: '3.5px solid #0F172A',
-            animation: 'spin 0.85s linear infinite'
-          }} />
-          <Sparkles size={20} color="#B88346" />
+      <div className="sh-container pd-container" style={{ padding: '24px 16px 60px', width: '100%', maxWidth: '1200px', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', alignItems: 'center' }}>
+          <div className="sh-img-shimmer" style={{ width: '60px', height: '14px', borderRadius: '4px' }} />
+          <span style={{ color: '#CBD5E1', fontSize: '12px' }}>/</span>
+          <div className="sh-img-shimmer" style={{ width: '80px', height: '14px', borderRadius: '4px' }} />
+          <span style={{ color: '#CBD5E1', fontSize: '12px' }}>/</span>
+          <div className="sh-img-shimmer" style={{ width: '120px', height: '14px', borderRadius: '4px' }} />
         </div>
-        <span style={{
-          fontFamily: '"Playfair Display", "Cinzel", "Cormorant Garamond", Georgia, serif',
-          fontSize: '20px', fontWeight: 900, color: '#0F172A', letterSpacing: '-0.5px'
-        }}>
-          Asmalabel
-        </span>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '32px', width: '100%', boxSizing: 'border-box' }}>
+          {/* Left Column: Image Box Skeleton */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="sh-img-shimmer" style={{ width: '100%', aspectRatio: '1.02', borderRadius: '20px' }} />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="sh-img-shimmer" style={{ width: '56px', height: '56px', borderRadius: '10px', flexShrink: 0 }} />
+              ))}
+            </div>
+          </div>
+
+          {/* Right Column: Title, Ratings, Price Skeleton */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="sh-img-shimmer" style={{ width: '85%', height: '28px', borderRadius: '6px' }} />
+            <div className="sh-img-shimmer" style={{ width: '55%', height: '20px', borderRadius: '6px' }} />
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <div className="sh-img-shimmer" style={{ width: '64px', height: '24px', borderRadius: '6px' }} />
+              <div className="sh-img-shimmer" style={{ width: '90px', height: '16px', borderRadius: '4px' }} />
+            </div>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'baseline', marginTop: '8px' }}>
+              <div className="sh-img-shimmer" style={{ width: '110px', height: '36px', borderRadius: '8px' }} />
+              <div className="sh-img-shimmer" style={{ width: '70px', height: '20px', borderRadius: '6px' }} />
+            </div>
+            <div className="sh-img-shimmer" style={{ width: '100%', height: '80px', borderRadius: '12px', marginTop: '12px' }} />
+            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+              <div className="sh-img-shimmer" style={{ flex: 1, height: '48px', borderRadius: '14px' }} />
+              <div className="sh-img-shimmer" style={{ flex: 1, height: '48px', borderRadius: '14px' }} />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -641,7 +705,7 @@ export default function ProductDetail() {
 
           {/* ── GALLERY SECTION ── */}
           <div className="pd-gallery-section">
-            {/* Main Image Frame with swipe and rating tag */}
+            {/* Main Image Frame with swipe and double-tap zoom */}
             <div
               className="pd-image-frame"
               onTouchStart={handleTouchStart}
@@ -651,12 +715,28 @@ export default function ProductDetail() {
               style={{ cursor: 'grab', userSelect: 'none' }}
               onClick={() => {
                 if (Math.abs(dragDistance.current) < 15) {
-                  setLightboxOpen(true);
-                  setZoomScale(1);
+                  const now = Date.now();
+                  if (now - lastTapRef.current < 320) {
+                    setLightboxOpen(true);
+                    setZoomScale(1);
+                    lastTapRef.current = 0;
+                  } else {
+                    lastTapRef.current = now;
+                  }
                 }
+              }}
+              onDoubleClick={() => {
+                setLightboxOpen(true);
+                setZoomScale(1);
               }}>
 
-              {/* Top-Left Rating Pill [ 4.3 ★ | 82 ] */}
+              {/* Top-Left: Free Shipping Pill */}
+              <div className="pd-free-shipping-tag">
+                <Truck size={12} color="#059669" />
+                <span>Free Shipping</span>
+              </div>
+
+              {/* Bottom-Left: Rating Pill [ 4.3 ★ | 82 ] */}
               <div className="pd-flipkart-rating-tag">
                 <span className="pd-rating-num">4.3</span>
                 <Star size={11} fill="#10B981" color="#10B981" />
@@ -664,10 +744,41 @@ export default function ProductDetail() {
                 <span className="pd-rating-count">82</span>
               </div>
 
-              {/* Free Shipping Tag */}
-              <div className="pd-free-shipping-tag">
-                <Truck size={12} color="#059669" />
-                <span>Free Shipping</span>
+              {/* ── Top-Right Floating Actions Stack ── */}
+              <div className="pd-overlay-top-right">
+                {/* Wishlist Button */}
+                <motion.button onClick={(e) => { e.stopPropagation(); handleWish(e); }}
+                  whileHover={{ scale: 1.08 }} whileTap={{ scale: .92 }}
+                  className="pd-action-btn pd-circle-btn"
+                  style={{
+                    width: '36px', height: '36px', minWidth: '36px', maxWidth: '36px',
+                    minHeight: '36px', maxHeight: '36px', borderRadius: '50%', padding: 0,
+                    margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(255, 255, 255, 0.95)', border: '1px solid rgba(226, 232, 240, 0.9)',
+                    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.08)', cursor: 'pointer', boxSizing: 'border-box'
+                  }}
+                  title={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
+                  <Heart size={18} fill={inWishlist ? '#EF4444' : 'none'} color={inWishlist ? '#EF4444' : '#475569'} />
+                </motion.button>
+
+                {/* Share Button */}
+                <motion.button onClick={(e) => { e.stopPropagation(); handleShareProduct(e); }}
+                  whileHover={{ scale: 1.08 }} whileTap={{ scale: .92 }}
+                  className="pd-action-btn pd-circle-btn"
+                  style={{
+                    width: '36px', height: '36px', minWidth: '36px', maxWidth: '36px',
+                    minHeight: '36px', maxHeight: '36px', borderRadius: '50%', padding: 0,
+                    margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(255, 255, 255, 0.95)', border: '1px solid rgba(226, 232, 240, 0.9)',
+                    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.08)', cursor: 'pointer', boxSizing: 'border-box'
+                  }}
+                  title="Share this product">
+                  {shared ? (
+                    <Check size={16} color="#16A34A" />
+                  ) : (
+                    <Send size={16} color="#475569" style={{ transform: 'rotate(45deg) translate(-1px, 1px)' }} />
+                  )}
+                </motion.button>
               </div>
 
               <motion.img
@@ -689,7 +800,7 @@ export default function ProductDetail() {
                 <button
                   onClick={(e) => { e.stopPropagation(); handlePrev(); }}
                   className="pd-arrow-nav"
-                  style={{ left: '10px' }}>
+                  style={{ left: '12px' }}>
                   ‹
                 </button>
               )}
@@ -699,12 +810,12 @@ export default function ProductDetail() {
                 <button
                   onClick={(e) => { e.stopPropagation(); handleNext(allImages.length); }}
                   className="pd-arrow-nav"
-                  style={{ right: '10px' }}>
+                  style={{ right: '12px' }}>
                   ›
                 </button>
               )}
 
-              {/* Dot indicators */}
+              {/* Dot indicators (bottom center) */}
               {allImages.length > 1 && (
                 <div className="pd-image-dots-container">
                   {allImages.map((_, i) => (
@@ -716,33 +827,6 @@ export default function ProductDetail() {
                   ))}
                 </div>
               )}
-
-              {/* Full Photo Button */}
-              <button
-                onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); setZoomScale(1); }}
-                className="pd-full-photo-tag">
-                <Maximize2 size={12} /> Full Photo
-              </button>
-
-              {/* Neutral Border Wishlist Button */}
-              <motion.button onClick={(e) => { e.stopPropagation(); handleWish(e); }}
-                whileHover={{ scale: 1.1 }} whileTap={{ scale: .92 }}
-                className="pd-wishlist-circle"
-                title={inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}>
-                <Heart size={18} fill={inWishlist ? '#EF4444' : 'none'} color={inWishlist ? '#EF4444' : '#475569'} />
-              </motion.button>
-
-              {/* Share Product Button (Paper Rocket pointing Right) */}
-              <motion.button onClick={(e) => { e.stopPropagation(); handleShareProduct(e); }}
-                whileHover={{ scale: 1.1 }} whileTap={{ scale: .92 }}
-                className="pd-share-circle"
-                title="Share this product">
-                {shared ? (
-                  <Check size={16} color="#16A34A" />
-                ) : (
-                  <Send size={16} color="#475569" style={{ transform: 'rotate(45deg) translate(-1px, 1px)' }} />
-                )}
-              </motion.button>
             </div>
 
             {/* Compact Thumbnail strip (Only shown if multiple images exist) */}

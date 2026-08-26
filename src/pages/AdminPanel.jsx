@@ -2331,6 +2331,11 @@ function QuickActions({ onAddProduct, onExportOrders, onRefresh }) {
   );
 }
 
+/* ── Module-Level In-Memory Cache for 0ms Instant Tab Switches in Admin Panel ── */
+let adminCachedProducts = null;
+let adminCachedOrders = null;
+let adminCachedCounts = null;
+
 /* ── Main Admin Panel ─────────────────────────────────────── */
 export default function AdminPanel() {
   const navigate = useNavigate();
@@ -2339,11 +2344,11 @@ export default function AdminPanel() {
   /* ── state ── */
   const [page,       setPage]       = useState('orders');   // orders | products | coupons | cms | more
   const [orderTab,   setOrderTab]   = useState('all_pending');
-  const [orders,     setOrders]     = useState([]);
-  const [allOrders,  setAllOrders]  = useState([]);
-  const [products,   setProducts]   = useState([]);
-  const [counts,     setCounts]     = useState({});
-  const [loading,    setLoading]    = useState(true);
+  const [orders,     setOrders]     = useState(() => (adminCachedOrders ? (adminCachedOrders['all_pending'] || []) : []));
+  const [allOrders,  setAllOrders]  = useState(() => (adminCachedOrders ? (adminCachedOrders['__all__'] || []) : []));
+  const [products,   setProducts]   = useState(() => adminCachedProducts || []);
+  const [counts,     setCounts]     = useState(() => adminCachedCounts || {});
+  const [loading,    setLoading]    = useState(() => !adminCachedProducts && !adminCachedOrders);
   const [confirming, setConfirming] = useState(null);
   const [modal,      setModal]      = useState(null);
   const [search,     setSearch]     = useState('');
@@ -2722,10 +2727,21 @@ export default function AdminPanel() {
   }, [orderTab, dateFilter]);
 
   async function fetchOrders() {
-    setLoading(true);
+    const cacheKey = `${orderTab}_${dateFilter}`;
+    if (adminCachedOrders && adminCachedOrders[cacheKey]) {
+      setOrders(adminCachedOrders[cacheKey]);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const { data: allData } = await supabase.from('orders').select('*');
-      if (allData) setAllOrders(allData);
+      if (allData) {
+        setAllOrders(allData);
+        if (!adminCachedOrders) adminCachedOrders = {};
+        adminCachedOrders['__all__'] = allData;
+      }
 
       let q = supabase.from('orders').select('*').order('created_at',{ascending:false});
       if (orderTab==='all_pending') q = q.in('status',['pending_payment','payment_submitted']);
@@ -2744,6 +2760,8 @@ export default function AdminPanel() {
           return true;
         });
       }
+      if (!adminCachedOrders) adminCachedOrders = {};
+      adminCachedOrders[cacheKey] = filtered;
       setOrders(filtered);
     } catch(err) { toast('Failed to load orders','error'); }
     finally { setLoading(false); }
@@ -2760,6 +2778,7 @@ export default function AdminPanel() {
     try {
       const { error } = await supabase.from('orders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       if (error) throw error;
+      adminCachedOrders = null;
       setAllOrders([]);
       setOrders([]);
       setSelected([]);
@@ -2771,6 +2790,9 @@ export default function AdminPanel() {
   }
 
   async function fetchCounts() {
+    if (adminCachedCounts) {
+      setCounts(adminCachedCounts);
+    }
     const { data } = await supabase.from('orders').select('status,payment_status');
     if (!data) return;
     const c = {};
@@ -2780,13 +2802,22 @@ export default function AdminPanel() {
       else if (o.payment_status==='rejected') c.payment_rejected=(c.payment_rejected||0)+1;
       else c[o.status]=(c[o.status]||0)+1;
     });
+    adminCachedCounts = c;
     setCounts(c);
   }
 
   async function fetchProducts() {
-    setLoading(true);
+    if (adminCachedProducts && adminCachedProducts.length > 0) {
+      setProducts(adminCachedProducts);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     const { data, error } = await supabase.from('products').select('*').order('created_at',{ascending:false});
-    if (!error) setProducts(data||[]);
+    if (!error && data) {
+      adminCachedProducts = data;
+      setProducts(data);
+    }
     setLoading(false);
   }
 

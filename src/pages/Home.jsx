@@ -231,12 +231,19 @@ const MiniCard = memo(function MiniCardComponent({ product, badge: customBadge }
               {badge.label}
             </div>
           )}
-          <button onClick={e=>{e.preventDefault();inWL?removeFromWishlist(product.id):addToWishlist(product);}}
-            style={{position:'absolute',bottom:'8px',right:'8px',width:'32px',height:'32px',
-              borderRadius:'9999px',background:'rgba(255,255,255,.9)',
-              border:'1px solid rgba(255,255,255,.9)',cursor:'pointer',
-              display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 2px 10px rgba(0,0,0,.08)'}}>
-            <Heart size={13} fill={inWL?'#E94560':'none'} color={inWL?'#E94560':'#555'}/>
+          <button
+            onClick={e => { e.preventDefault(); inWL ? removeFromWishlist(product.id) : addToWishlist(product); }}
+            className="sh-card-wish-btn"
+            style={{
+              position: 'absolute', bottom: '8px', right: '8px',
+              width: '32px', height: '32px', minHeight: '32px', maxHeight: '32px', minWidth: '32px', maxWidth: '32px',
+              borderRadius: '50%', background: 'rgba(255,255,255,0.92)',
+              border: '1px solid rgba(255,255,255,0.9)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.08)', padding: 0, boxSizing: 'border-box'
+            }}
+            title={inWL ? "Remove from Wishlist" : "Add to Wishlist"}>
+            <Heart size={13} fill={inWL ? '#E94560' : 'none'} color={inWL ? '#E94560' : '#555'} />
           </button>
         </div>
         <div style={{padding:'12px 14px 14px',flex:1,display:'flex',flexDirection:'column',justify:'space-between'}}>

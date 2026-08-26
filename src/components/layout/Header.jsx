@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ShoppingCart, User, LogOut, Shield, Menu, X, ChevronRight, Heart, Package, Info, MessageCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../config/supabase';
@@ -296,22 +297,34 @@ export default function Header() {
       </header>
 
       {/* ══ Mobile Side Utility Drawer ══════════════════════════════════════════════ */}
-      {drawer && (
-        <>
-          {/* Backdrop */}
-          <div onClick={() => setDrawer(false)} style={{
-            position:'fixed', inset:0, background:'rgba(0, 0, 0, 0.45)',
-            zIndex:1000, backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)'
-          }} />
+      <AnimatePresence>
+        {drawer && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setDrawer(false)}
+              style={{
+                position:'fixed', inset:0, background:'rgba(0, 0, 0, 0.45)',
+                zIndex:1000, backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)'
+              }}
+            />
 
-          {/* Drawer panel */}
-          <div style={{
-            position:'fixed', top:0, right:0, bottom:0, width:'84vw', maxWidth:'340px',
-            background:'#FFFFFF', zIndex:1001, overflowY:'auto', display:'flex', flexDirection:'column',
-            boxShadow:'-8px 0 36px rgba(0, 0, 0, 0.16)',
-            borderTopLeftRadius:'24px', borderBottomLeftRadius:'24px',
-            animation:'sh-slideIn .28s ease-out'
-          }}>
+            {/* Drawer panel */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 27, stiffness: 280 }}
+              style={{
+                position:'fixed', top:0, right:0, bottom:0, width:'84vw', maxWidth:'340px',
+                background:'#FFFFFF', zIndex:1001, overflowY:'auto', display:'flex', flexDirection:'column',
+                boxShadow:'-8px 0 36px rgba(0, 0, 0, 0.16)',
+                borderTopLeftRadius:'24px', borderBottomLeftRadius:'24px',
+              }}>
 
             {/* ── HEADER CARD ── */}
             <div style={{
@@ -497,9 +510,10 @@ export default function Header() {
               )}
             </div>
 
-          </div>
-        </>
-      )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <style>{`
         .sh-mobile-only  { display: flex !important; }
