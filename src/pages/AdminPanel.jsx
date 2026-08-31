@@ -590,8 +590,10 @@ function ProductModal({ product, onClose, onSave }) {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importSearch, setImportSearch] = useState('');
   const [selectedImportIds, setSelectedImportIds] = useState([]);
-  const [deactivateOriginals, setDeactivateOriginals] = useState(true);
+  const [deactivateOriginals, setDeactivateOriginals] = useState(false);
   const [deactivatedProductIds, setDeactivatedProductIds] = useState([]);
+  const [autoSyncVariants, setAutoSyncVariants] = useState(true);
+  const [publishingVariantIdx, setPublishingVariantIdx] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -760,6 +762,93 @@ function ProductModal({ product, onClose, onSave }) {
       ...p,
       variants: (p.variants || []).map((v, i) => ({ ...v, is_default: i === index }))
     }));
+  }
+
+  function handleMoveVariantUp(index) {
+    if (index <= 0) return;
+    setForm(p => {
+      const next = [...(p.variants || [])];
+      const temp = next[index];
+      next[index] = next[index - 1];
+      next[index - 1] = temp;
+      return { ...p, variants: next };
+    });
+  }
+
+  function handleMoveVariantDown(index) {
+    setForm(p => {
+      const next = [...(p.variants || [])];
+      if (index >= next.length - 1) return p;
+      const temp = next[index];
+      next[index] = next[index + 1];
+      next[index + 1] = temp;
+      return { ...p, variants: next };
+    });
+  }
+
+  async function handlePublishVariantAsProduct(index) {
+    const v = form.variants[index];
+    if (!v) return;
+    const variantTitle = (v.title || `${form.name.trim()} - ${v.size || v.color || `Variant ${index + 1}`}`).trim();
+    if (!variantTitle) {
+      toast('Variant title or size is required', 'error');
+      return;
+    }
+
+    setPublishingVariantIdx(index);
+    try {
+      const siblingVariants = (form.variants || []).map((item, i) => ({
+        ...item,
+        is_default: i === index
+      }));
+
+      const vImages = Array.isArray(v.images) && v.images.length > 0
+        ? v.images
+        : (form.images && form.images.length > 0 ? form.images : (form.image_url ? [form.image_url] : []));
+
+      const standalonePayload = {
+        name: variantTitle,
+        description: (v.description || form.description || '').trim(),
+        price: v.price !== undefined && v.price !== null && v.price !== '' ? parseFloat(v.price) : (parseFloat(form.price) || 0),
+        original_price: v.original_price ? parseFloat(v.original_price) : (form.original_price ? parseFloat(form.original_price) : null),
+        category: form.category,
+        sub_category: form.sub_category ? normalizeCategoryKey(form.sub_category) : null,
+        unit: form.unit || null,
+        stock: v.stock !== undefined && v.stock !== null && v.stock !== '' ? parseInt(v.stock) : (form.stock ? parseInt(form.stock) : 100),
+        image_url: vImages[0] || form.image_url || null,
+        images: vImages,
+        variants: siblingVariants,
+        active: true
+      };
+
+      let saved = false;
+      for (let attempt = 0; attempt < 3 && !saved; attempt++) {
+        const res = await supabase.from('products').insert([standalonePayload]);
+        if (!res.error) {
+          saved = true;
+          break;
+        }
+        const errMsg = (res.error?.message || '').toLowerCase();
+        if (errMsg.includes('variants') && 'variants' in standalonePayload) {
+          delete standalonePayload.variants;
+          standalonePayload.description = `${standalonePayload.description} [VARIANTS:${encodeURIComponent(JSON.stringify(siblingVariants))}]`;
+          continue;
+        }
+        if (errMsg.includes('images') && 'images' in standalonePayload) {
+          delete standalonePayload.images;
+          continue;
+        }
+        throw res.error;
+      }
+
+      toast(`🎉 Published "${variantTitle}" as a separate product in ${form.category}!`, 'success');
+      if (onSave) onSave();
+    } catch (err) {
+      console.error('Error publishing variant as product:', err);
+      toast('Failed to publish product: ' + (err.message || err), 'error');
+    } finally {
+      setPublishingVariantIdx(null);
+    }
   }
 
   /* ── Import Existing Products as Variants Handler ── */
@@ -946,12 +1035,52 @@ function ProductModal({ product, onClose, onSave }) {
         throw lastError || new Error('Failed to save product');
       }
 
-      // Auto-deactivate original imported standalone products to prevent storefront duplication
-      if (deactivatedProductIds && deactivatedProductIds.length > 0) {
-        try {
-          await supabase.from('products').update({ active: false }).in('id', deactivatedProductIds);
-        } catch (e) {
-          console.error('Error deactivating imported products:', e);
+      // Auto-sync each variant as a separate product in this category with all sizes attached
+      if (autoSyncVariants && variantsPayload.length > 0) {
+        for (let i = 0; i < variantsPayload.length; i++) {
+          const v = variantsPayload[i];
+          const vTitle = (v.title || `${form.name.trim()} - ${v.size || v.color || `Variant ${i + 1}`}`).trim();
+          if (!vTitle) continue;
+
+          const vImages = Array.isArray(v.images) && v.images.length > 0
+            ? v.images
+            : (form.images && form.images.length > 0 ? form.images : (form.image_url ? [form.image_url] : []));
+
+          // Link all variants with this specific variant set as default
+          const siblingVariants = variantsPayload.map((item, sIdx) => ({
+            ...item,
+            is_default: sIdx === i
+          }));
+
+          const vPayload = {
+            name: vTitle,
+            description: (v.description || finalDesc || '').trim(),
+            price: v.price !== undefined && v.price !== null && v.price !== '' ? parseFloat(v.price) : (parseFloat(form.price) || 0),
+            original_price: v.original_price || (form.original_price ? parseFloat(form.original_price) : null),
+            category: form.category,
+            sub_category: form.sub_category ? normalizeCategoryKey(form.sub_category) : null,
+            unit: form.unit || null,
+            stock: v.stock || 100,
+            image_url: vImages[0] || form.image_url || null,
+            images: vImages,
+            variants: siblingVariants,
+            active: true
+          };
+
+          try {
+            if (v.imported_product_id) {
+              await supabase.from('products').update(vPayload).eq('id', v.imported_product_id);
+            } else if (!isEdit || (product && product.name !== vTitle)) {
+              const { data: existing } = await supabase.from('products').select('id').eq('name', vTitle).eq('category', form.category).limit(1);
+              if (existing && existing.length > 0) {
+                await supabase.from('products').update(vPayload).eq('id', existing[0].id);
+              } else {
+                await supabase.from('products').insert([vPayload]);
+              }
+            }
+          } catch (syncErr) {
+            console.warn('Variant auto-sync notice:', syncErr);
+          }
         }
       }
 
@@ -1516,6 +1645,18 @@ function ProductModal({ product, onClose, onSave }) {
             {/* Variant List Body */}
             {form.variants_enabled && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '10px', borderTop: '1px solid #E2E8F0' }}>
+                
+                {/* Auto-Sync All Variants as Standalone Products Checkbox */}
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11.5px', fontWeight: 700, color: '#1E293B', background: '#F8FAFC', padding: '9px 12px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                  <input
+                    type="checkbox"
+                    checked={autoSyncVariants}
+                    onChange={e => setAutoSyncVariants(e.target.checked)}
+                    style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#0F172A' }}
+                  />
+                  <span>📦 Auto-add each variant as a separate product in {form.category === 'tailoring' ? 'Tailoring' : 'Fashion'} catalog (sizes linked)</span>
+                </label>
+
                 {(form.variants || []).map((v, vIdx) => (
                   <div key={v.id || vIdx} style={{
                     background: '#FFFFFF',
@@ -1540,7 +1681,74 @@ function ProductModal({ product, onClose, onSave }) {
                         <span>{v.is_default ? '★ Default / Cover Variant' : 'Set as Default'}</span>
                       </label>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                        {/* Move Up / Down Reorder Buttons */}
+                        <div style={{ display: 'inline-flex', borderRadius: '8px', overflow: 'hidden', border: '1px solid #CBD5E1' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveVariantUp(vIdx)}
+                            disabled={vIdx === 0}
+                            title="Move Variant Up in List & Storefront"
+                            style={{
+                              padding: '4px 7px',
+                              background: vIdx === 0 ? '#F1F5F9' : '#FFFFFF',
+                              border: 'none',
+                              borderRight: '1px solid #E2E8F0',
+                              color: vIdx === 0 ? '#94A3B8' : '#0F172A',
+                              cursor: vIdx === 0 ? 'not-allowed' : 'pointer',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              display: 'inline-flex',
+                              alignItems: 'center'
+                            }}
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveVariantDown(vIdx)}
+                            disabled={vIdx === (form.variants || []).length - 1}
+                            title="Move Variant Down in List & Storefront"
+                            style={{
+                              padding: '4px 7px',
+                              background: vIdx === (form.variants || []).length - 1 ? '#F1F5F9' : '#FFFFFF',
+                              border: 'none',
+                              color: vIdx === (form.variants || []).length - 1 ? '#94A3B8' : '#0F172A',
+                              cursor: vIdx === (form.variants || []).length - 1 ? 'not-allowed' : 'pointer',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              display: 'inline-flex',
+                              alignItems: 'center'
+                            }}
+                          >
+                            ▼
+                          </button>
+                        </div>
+
+                        {/* Publish as Separate Standalone Product Button */}
+                        <button
+                          type="button"
+                          onClick={() => handlePublishVariantAsProduct(vIdx)}
+                          disabled={publishingVariantIdx === vIdx}
+                          title="Publish this variant as an independent catalog product in this category"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            padding: '4px 9px',
+                            borderRadius: '8px',
+                            background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+                            color: '#FFFFFF',
+                            fontSize: '10.5px',
+                            fontWeight: 800,
+                            border: 'none',
+                            cursor: publishingVariantIdx === vIdx ? 'not-allowed' : 'pointer',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                          }}
+                        >
+                          {publishingVariantIdx === vIdx ? '...' : '🚀 + Standalone'}
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => handleCloneVariant(vIdx)}
@@ -1548,8 +1756,8 @@ function ProductModal({ product, onClose, onSave }) {
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '4px',
-                            padding: '4px 10px',
+                            gap: '3px',
+                            padding: '4px 8px',
                             borderRadius: '8px',
                             background: '#F1F5F9',
                             border: '1px solid #E2E8F0',
@@ -1569,8 +1777,8 @@ function ProductModal({ product, onClose, onSave }) {
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '4px',
-                            padding: '4px 10px',
+                            gap: '3px',
+                            padding: '4px 8px',
                             borderRadius: '8px',
                             background: '#FEF2F2',
                             border: '1px solid #FEE2E2',
