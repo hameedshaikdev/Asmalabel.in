@@ -1241,39 +1241,46 @@ export default function ProductDetail() {
               </div>
             </div>
 
-            {/* ── COLLAPSIBLE DESCRIPTION ACCORDION ── */}
-            {(cleanDesc || activeVariant?.description) && (
-              <div className="pd-accordion-card">
-                <div className="pd-accordion-header" onClick={() => setDescOpen(!descOpen)}>
-                  <span className="pd-accordion-title">Description & Specifications</span>
-                  <span className="pd-accordion-icon">{descOpen ? '−' : '+'}</span>
-                </div>
-                {descOpen && (
-                  <div className="pd-accordion-body">
-                    {activeVariant?.description && (
-                      <div style={{
-                        background: '#F8FAFC',
-                        padding: '12px 14px',
-                        borderRadius: '10px',
-                        border: '1.5px solid #E2E8F0',
-                        marginBottom: '14px',
-                        fontSize: '13px',
-                        color: '#0F172A',
-                        lineHeight: 1.55
-                      }}>
-                        <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '.5px' }}>
-                          ⚡ Option Specifications ({selectedSize || activeVariant.size || 'Selected Variant'}):
-                        </div>
-                        <div style={{ fontWeight: 600, whiteSpace: 'pre-line' }}>
-                          {activeVariant.description}
-                        </div>
-                      </div>
-                    )}
-                    {cleanDesc && <ProductDescription description={cleanDesc} />}
+            {/* ── COLLAPSIBLE DESCRIPTION ACCORDION (No Duplication) ── */}
+            {(cleanDesc || activeVariant?.description) && (() => {
+              const varDesc = (activeVariant?.description || '').trim();
+              const baseDesc = (cleanDesc || '').trim();
+
+              // If variant has its own unique description, use it; otherwise use baseDesc
+              const isIdentical = varDesc.toLowerCase() === baseDesc.toLowerCase();
+              const finalDisplayDesc = (!varDesc || isIdentical) ? baseDesc : varDesc;
+
+              // Check if variant has a brief 1-line note distinct from the main body
+              const hasShortExtraNote = varDesc && !isIdentical && varDesc.length < 120 && !varDesc.includes('\n') && !baseDesc.toLowerCase().includes(varDesc.toLowerCase());
+
+              return (
+                <div className="pd-accordion-card">
+                  <div className="pd-accordion-header" onClick={() => setDescOpen(!descOpen)}>
+                    <span className="pd-accordion-title">Description & Specifications</span>
+                    <span className="pd-accordion-icon">{descOpen ? '−' : '+'}</span>
                   </div>
-                )}
-              </div>
-            )}
+                  {descOpen && (
+                    <div className="pd-accordion-body">
+                      {hasShortExtraNote && (
+                        <div style={{
+                          background: '#F8FAFC',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid #E2E8F0',
+                          marginBottom: '12px',
+                          fontSize: '12.5px',
+                          color: '#0F172A',
+                          fontWeight: 700
+                        }}>
+                          ⚡ Note for {selectedSize || activeVariant?.size || 'Selected Variant'}: {varDesc}
+                        </div>
+                      )}
+                      {finalDisplayDesc && <ProductDescription description={finalDisplayDesc} />}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* ── PRODUCT VIDEOS & DEMOS ── */}
             <ProductVideoPlayer product={product} />
