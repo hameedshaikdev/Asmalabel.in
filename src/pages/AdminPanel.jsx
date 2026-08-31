@@ -23,11 +23,36 @@ import {
   toast, confirm,
 } from '../components/admin/AdminUtils';
 import { compressImageFile } from '../utils/imageCompressor';
+import { SAFE_DEFAULT_COUPONS, MIN_ORDER_VALUE } from '../utils/pricing';
 import HomepageManager from '../components/admin/cms/HomepageManager';
 import SocialMediaManager from '../components/admin/SocialMediaManager';
 import SEO from '../components/common/SEO';
 
 const ADMIN_EMAIL = 'as.businezzz@gmail.com';
+
+export const PRESET_SIZES = [
+  '1.6mm', '2.4mm', '3.2mm', '4.8mm', '6.4mm', '8.0mm', 'Inches', 'S', 'M', 'L', 'XL', 'Free Size'
+];
+
+export function extractSizeFromName(name) {
+  if (!name || typeof name !== 'string') return '';
+  // Match multi-dimensional inches/mm/cm: 12 x 22 inches, 12x22 inch, 10 x 15 cm, 12" x 22"
+  const multiDimMatch = name.match(/(\d+(?:\.\d+)?\s*(?:["']|\s)?\s*[xX*×]\s*\d+(?:\.\d+)?\s*(?:inches|inch|in|mm|cm|["'])?)/i);
+  if (multiDimMatch) return multiDimMatch[1].trim();
+  // Match mm sizes: 1.6mm, 1.6 mm, 3.2mm, 5mm
+  const mmMatch = name.match(/(\d+(?:\.\d+)?\s*mm)/i);
+  if (mmMatch) return mmMatch[1].replace(/\s+/g, '');
+  // Match fractional inches: 1/16", 1/8", 1/4", 3/8", 1/2"
+  const inchFracMatch = name.match(/(\d+\/\d+["']?)/i);
+  if (inchFracMatch) return inchFracMatch[1];
+  // Match whole inches: 11 inch, 12 in, 60 inch
+  const inchMatch = name.match(/(\d+\s*(?:inch|inches|in)\b)/i);
+  if (inchMatch) return inchMatch[1];
+  // Match clothing sizes: XXL, XL, XS, S, M, L, Free Size
+  const sizeMatch = name.match(/\b(XXL|XL|XS|S|M|L|Free Size)\b/i);
+  if (sizeMatch) return sizeMatch[1];
+  return '';
+}
 
 const SHOP = {
   shopName: 'Asmalabel',
@@ -559,11 +584,19 @@ function ProductModal({ product, onClose, onSave }) {
   const [newVT, setNewVT] = useState(''); const [newVU, setNewVU] = useState('');
   const [colorInputText, setColorInputText] = useState('');
   const [colorPickerVal, setColorPickerVal] = useState('#0F172A');
+  const [varUrlInputs, setVarUrlInputs] = useState({});
+
+  // ── Import Uploaded Products as Variants Modal States ──
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importSearch, setImportSearch] = useState('');
+  const [selectedImportIds, setSelectedImportIds] = useState([]);
+  const [deactivateOriginals, setDeactivateOriginals] = useState(true);
+  const [deactivatedProductIds, setDeactivatedProductIds] = useState([]);
 
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await supabase.from('products').select('id, name, price, category, image_url').eq('active', true);
+        const { data } = await supabase.from('products').select('*').order('created_at', { ascending: false });
         setCatalogProducts(data || []);
       } catch (err) {
         console.error(err);
@@ -608,15 +641,17 @@ function ProductModal({ product, onClose, onSave }) {
   }
 
   /* ── Variant Action Handlers ── */
-  function handleAddVariant() {
+  function handleAddVariant(initialSize = '') {
     const newVar = {
       id: `var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      size: '',
+      title: '',
+      description: '',
+      size: initialSize || '',
       color: '',
       color_value: '#0F172A',
-      price: form.price ? parseFloat(form.price) : 0,
-      original_price: form.original_price ? parseFloat(form.original_price) : null,
-      stock: form.stock !== '' && form.stock !== null ? parseInt(form.stock) : 10,
+      price: form.price !== '' && form.price !== null ? parseFloat(form.price) : 0,
+      original_price: form.original_price !== '' && form.original_price !== null ? parseFloat(form.original_price) : null,
+      stock: form.stock !== '' && form.stock !== null ? parseInt(form.stock) : 100,
       sku: '',
       images: [],
       is_default: (form.variants || []).length === 0,
@@ -691,6 +726,16 @@ function ProductModal({ product, onClose, onSave }) {
     }
   }
 
+  function handleVariantAddImageUrl(varIdx, url) {
+    if (!url || typeof url !== 'string' || !url.trim()) return;
+    setForm(p => ({
+      ...p,
+      variants: (p.variants || []).map((v, i) => i === varIdx ? { ...v, images: [...(v.images || []), url.trim()] } : v)
+    }));
+    setVarUrlInputs(p => ({ ...p, [varIdx]: '' }));
+    toast('Photo URL added to variant!', 'success');
+  }
+
   function handleVariantRemoveImage(varIdx, imgIdx) {
     setForm(p => ({
       ...p,
@@ -715,6 +760,64 @@ function ProductModal({ product, onClose, onSave }) {
       ...p,
       variants: (p.variants || []).map((v, i) => ({ ...v, is_default: i === index }))
     }));
+  }
+
+  /* ── Import Existing Products as Variants Handler ── */
+  function handleImportSelectedProducts() {
+    if (selectedImportIds.length === 0) {
+      toast('Please select at least one product to import', 'info');
+      return;
+    }
+    const selectedProds = catalogProducts.filter(cp => selectedImportIds.includes(cp.id) && cp.id !== targetProduct?.id);
+    if (selectedProds.length === 0) return;
+
+    const newImportedVariants = selectedProds.map(p => {
+      const parsedProd = parseProductTags(p);
+      const prodImages = [];
+      if (p.image_url) prodImages.push(p.image_url);
+      if (Array.isArray(p.images)) {
+        p.images.forEach(img => {
+          if (img && !prodImages.includes(img)) prodImages.push(img);
+        });
+      } else if (Array.isArray(parsedProd.images)) {
+        parsedProd.images.forEach(img => {
+          if (img && !prodImages.includes(img)) prodImages.push(img);
+        });
+      }
+
+      const detectedSize = extractSizeFromName(p.name);
+
+      return {
+        id: `var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        title: p.name || '',
+        description: parsedProd.cleanDesc || p.description || '',
+        size: detectedSize || '',
+        color: (parsedProd.colors && parsedProd.colors[0]) || '',
+        color_value: (parsedProd.colors && getColorSwatch(parsedProd.colors[0])) || '#0F172A',
+        price: p.price !== undefined && p.price !== null && p.price !== '' ? parseFloat(p.price) : (form.price !== '' ? parseFloat(form.price) : 0),
+        original_price: p.original_price ? parseFloat(p.original_price) : null,
+        stock: p.stock !== undefined && p.stock !== null && p.stock !== '' ? parseInt(p.stock) : 100,
+        sku: p.sku || '',
+        images: prodImages,
+        is_default: false,
+        imported_product_id: p.id,
+      };
+    });
+
+    if (deactivateOriginals) {
+      setDeactivatedProductIds(prev => Array.from(new Set([...prev, ...selectedImportIds])));
+    }
+
+    setForm(p => ({
+      ...p,
+      variants_enabled: true,
+      variants: [...(p.variants || []), ...newImportedVariants]
+    }));
+
+    setSelectedImportIds([]);
+    setImportSearch('');
+    setShowImportModal(false);
+    toast(`Successfully imported ${newImportedVariants.length} products as variants!`, 'success');
   }
 
   async function handleSubmit(e) {
@@ -743,29 +846,34 @@ function ProductModal({ product, onClose, onSave }) {
       ].join('|');
       finalDesc = finalDesc ? `${finalDesc} [BUNDLE:${bundleStr}]` : `[BUNDLE:${bundleStr}]`;
 
-      // Variant Validation
+      // Clean and Validate Variants (Supports any size format: mm, inch, XL, titles, descriptions)
+      let variantsPayload = [];
       if (form.variants_enabled && form.variants && form.variants.length > 0) {
-        const seen = new Set();
-        for (let i = 0; i < form.variants.length; i++) {
-          const v = form.variants[i];
-          const sz = (v.size || '').trim();
-          const clr = (v.color || '').trim();
-          if (!sz && !clr) {
-            alert(`Variant #${i + 1} must have a Size or a Color.`);
-            setSaving(false);
-            return;
+        const cleaned = form.variants
+          .map(v => ({
+            id: v.id || `var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            title: (v.title || '').trim(),
+            description: (v.description || '').trim(),
+            size: (v.size || '').trim(),
+            color: (v.color || '').trim(),
+            color_value: v.color_value || '#0F172A',
+            price: v.price !== undefined && v.price !== null && v.price !== '' ? parseFloat(v.price) : (form.price !== '' ? parseFloat(form.price) : 0),
+            original_price: v.original_price !== undefined && v.original_price !== null && v.original_price !== '' ? parseFloat(v.original_price) : null,
+            stock: v.stock !== undefined && v.stock !== null && v.stock !== '' ? parseInt(v.stock) : 100,
+            sku: (v.sku || '').trim(),
+            images: Array.isArray(v.images) ? v.images.filter(Boolean) : [],
+            is_default: !!v.is_default
+          }))
+          .filter(v => v.size || v.color || v.title || (v.images && v.images.length > 0));
+
+        if (cleaned.length > 0) {
+          if (!cleaned.some(v => v.is_default)) {
+            cleaned[0].is_default = true;
           }
-          const combo = `${sz.toLowerCase()}__${clr.toLowerCase()}`;
-          if (seen.has(combo)) {
-            alert(`Duplicate variant combination detected: "${sz || 'No size'}" + "${clr || 'No color'}". Every variant must be unique.`);
-            setSaving(false);
-            return;
-          }
-          seen.add(combo);
+          variantsPayload = cleaned;
         }
       }
 
-      const variantsPayload = (form.variants_enabled && form.variants && form.variants.length > 0) ? form.variants : [];
       const imagesPayload = form.images || [];
       const videoLinksPayload = form.video_links || [];
 
@@ -836,6 +944,15 @@ function ProductModal({ product, onClose, onSave }) {
 
       if (!saved) {
         throw lastError || new Error('Failed to save product');
+      }
+
+      // Auto-deactivate original imported standalone products to prevent storefront duplication
+      if (deactivatedProductIds && deactivatedProductIds.length > 0) {
+        try {
+          await supabase.from('products').update({ active: false }).in('id', deactivatedProductIds);
+        } catch (e) {
+          console.error('Error deactivating imported products:', e);
+        }
       }
 
       toast(isEdit ? 'Product updated!' : 'Product added!', 'success');
@@ -1468,101 +1585,146 @@ function ProductModal({ product, onClose, onSave }) {
                       </div>
                     </div>
 
-                    {/* Row 1: Size & Color Inputs */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    {/* Row 1: Variant Title & Description */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#F8FAFC', padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
                       <div>
-                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
-                          Size (e.g. 11 Inch, XL)
+                        <label style={{ fontSize: '11px', fontWeight: 800, color: '#0F172A', display: 'block', marginBottom: '3px' }}>
+                          Variant Title / Spec (Optional)
                         </label>
                         <input
-                          placeholder="e.g. 11 Inch"
-                          value={v.size || ''}
-                          onChange={e => handleUpdateVariant(vIdx, 'size', e.target.value)}
-                          style={S}
+                          placeholder="e.g. 1.6mm (1/16) Narrow Rolled Hemmer Presser Foot"
+                          value={v.title || ''}
+                          onChange={e => handleUpdateVariant(vIdx, 'title', e.target.value)}
+                          style={{ ...S, background: '#FFFFFF' }}
                         />
                       </div>
 
                       <div>
-                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
-                          Color Name (e.g. Red, Black)
+                        <label style={{ fontSize: '11px', fontWeight: 800, color: '#0F172A', display: 'block', marginBottom: '3px' }}>
+                          Variant Description / Features (Optional)
                         </label>
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                          <input
-                            type="color"
-                            value={v.color_value || '#0F172A'}
-                            onChange={e => {
-                              handleUpdateVariant(vIdx, 'color_value', e.target.value);
-                              if (!v.color) handleUpdateVariant(vIdx, 'color', getColorName(e.target.value));
-                            }}
-                            title="Color Swatch"
-                            style={{
-                              width: '36px',
-                              height: '36px',
-                              border: '1px solid #CBD5E1',
-                              borderRadius: '8px',
-                              cursor: 'pointer',
-                              padding: '2px',
-                              background: '#FFFFFF',
-                              flexShrink: 0,
-                              boxSizing: 'border-box'
-                            }}
-                          />
-                          <input
-                            placeholder="e.g. Crimson Red"
-                            value={v.color || ''}
-                            onChange={e => handleUpdateVariant(vIdx, 'color', e.target.value)}
-                            style={{ ...S, flex: 1, minWidth: 0 }}
-                          />
+                        <textarea
+                          placeholder="e.g. Specially designed for 1.6mm delicate chiffon and silk rolled edges. High durability steel."
+                          value={v.description || ''}
+                          onChange={e => handleUpdateVariant(vIdx, 'description', e.target.value)}
+                          rows={2}
+                          style={{ ...S, background: '#FFFFFF', resize: 'vertical', minHeight: '48px', fontFamily: 'inherit', fontSize: '12px' }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Row 2: Size & Color Inputs (Fully Responsive for Mobile & PC) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <label style={{ fontSize: '11px', fontWeight: 800, color: '#0F172A', display: 'block', marginBottom: '4px' }}>
+                          {form.category === 'tailoring' ? '📏 Size / Dimension (e.g. 1.6mm, 12 x 22 Inches)' : '👗 Size (e.g. S, M, L, XL, 32)'} *
+                        </label>
+                        
+                        {/* 100% Full-Width Clean Size Input */}
+                        <input
+                          placeholder={form.category === 'tailoring' ? 'e.g. 1.6mm, 12 x 22 Inches, 60 Inch' : 'e.g. S, M, L, XL, 32, Free Size'}
+                          value={v.size || ''}
+                          onChange={e => handleUpdateVariant(vIdx, 'size', e.target.value)}
+                          style={{ ...S, width: '100%', fontWeight: 700 }}
+                        />
+
+                        {/* Quick 1-Tap Unit Helper Pills */}
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                          {(form.category === 'tailoring'
+                            ? ['1.6mm', '2.4mm', '3.2mm', 'mm', 'Inches', 'cm', 'Pcs', 'Standard']
+                            : ['S', 'M', 'L', 'XL', '2XL', 'Free Size']
+                          ).map(u => (
+                            <button
+                              key={u}
+                              type="button"
+                              onClick={() => {
+                                const cur = (v.size || '').trim();
+                                if (!cur) {
+                                  handleUpdateVariant(vIdx, 'size', u);
+                                } else if (['mm', 'Inches', 'cm', 'Pcs'].includes(u)) {
+                                  if (!cur.toLowerCase().includes(u.toLowerCase())) {
+                                    handleUpdateVariant(vIdx, 'size', `${cur} ${u}`);
+                                  }
+                                } else {
+                                  handleUpdateVariant(vIdx, 'size', u);
+                                }
+                              }}
+                              style={{
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                background: '#F1F5F9',
+                                border: '1px solid #CBD5E1',
+                                fontSize: '10.5px',
+                                fontWeight: 700,
+                                color: '#334155',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              + {u}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ minWidth: 0 }}>
+                        <label style={{ fontSize: '11px', fontWeight: 800, color: '#0F172A', display: 'block', marginBottom: '4px' }}>
+                          🎨 Color (Optional, e.g. Black, Red, Gold)
+                        </label>
+                        
+                        {/* Clean Text Color Input (No stretched black bars) */}
+                        <input
+                          placeholder="e.g. Black, Crimson Red, Gold..."
+                          value={v.color || ''}
+                          onChange={e => handleUpdateVariant(vIdx, 'color', e.target.value)}
+                          style={{ ...S, width: '100%', fontWeight: 700 }}
+                        />
+
+                        {/* Quick Color Presets */}
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', marginTop: '6px' }}>
+                          {PRESET_COLORS.slice(0, 8).map(pc => {
+                            const isChosen = (v.color || '').toLowerCase() === pc.name.toLowerCase();
+                            return (
+                              <button
+                                key={pc.name}
+                                type="button"
+                                onClick={() => {
+                                  handleUpdateVariant(vIdx, 'color', pc.name);
+                                  handleUpdateVariant(vIdx, 'color_value', pc.hex);
+                                }}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '3px 7px',
+                                  borderRadius: '6px',
+                                  background: isChosen ? '#0F172A' : '#FFFFFF',
+                                  color: isChosen ? '#FFFFFF' : '#334155',
+                                  border: isChosen ? '1px solid #0F172A' : '1px solid #CBD5E1',
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '50%',
+                                    background: pc.hex,
+                                    border: '1px solid rgba(0,0,0,0.15)',
+                                    flexShrink: 0
+                                  }}
+                                />
+                                {pc.name}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
 
-                    {/* Quick Color Presets as a clean compact row */}
-                    <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
-                      <span style={{ fontSize: '10.5px', color: '#94A3B8', fontWeight: 700 }}>Presets:</span>
-                      {PRESET_COLORS.slice(0, 10).map(pc => {
-                        const isChosen = v.color === pc.name || v.color_value === pc.hex;
-                        return (
-                          <button
-                            key={pc.name}
-                            type="button"
-                            onClick={() => {
-                              handleUpdateVariant(vIdx, 'color', pc.name);
-                              handleUpdateVariant(vIdx, 'color_value', pc.hex);
-                            }}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              padding: '3px 7px',
-                              borderRadius: '6px',
-                              background: isChosen ? '#0F172A' : '#FFFFFF',
-                              color: isChosen ? '#FFFFFF' : '#334155',
-                              border: isChosen ? '1px solid #0F172A' : '1px solid #E2E8F0',
-                              fontSize: '10.5px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: '8px',
-                                height: '8px',
-                                borderRadius: '50%',
-                                background: pc.hex,
-                                border: isChosen ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(0,0,0,0.15)',
-                                flexShrink: 0
-                              }}
-                            />
-                            {pc.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Row 2: Price, MRP, Stock, SKU */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px' }}>
+                    {/* Row 3: Price, MRP, Stock, SKU */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(105px, 1fr))', gap: '8px' }}>
                       <div>
                         <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
                           Selling Price (₹) *
@@ -1595,7 +1757,7 @@ function ProductModal({ product, onClose, onSave }) {
                         </label>
                         <input
                           type="number"
-                          placeholder="e.g. 10"
+                          placeholder="e.g. 100"
                           value={v.stock !== undefined && v.stock !== null ? v.stock : ''}
                           onChange={e => handleUpdateVariant(vIdx, 'stock', e.target.value)}
                           style={S}
@@ -1607,7 +1769,7 @@ function ProductModal({ product, onClose, onSave }) {
                           SKU (Optional)
                         </label>
                         <input
-                          placeholder="e.g. JUP-11-RED"
+                          placeholder="e.g. HEM-16-MM"
                           value={v.sku || ''}
                           onChange={e => handleUpdateVariant(vIdx, 'sku', e.target.value)}
                           style={S}
@@ -1615,13 +1777,13 @@ function ProductModal({ product, onClose, onSave }) {
                       </div>
                     </div>
 
-                    {/* Row 3: Variant-Specific Images Manager */}
+                    {/* Row 4: Variant-Specific Images Manager (Same as Main Product) */}
                     <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
                       <label style={{ fontSize: '11px', fontWeight: 800, color: '#0F172A', display: 'block', marginBottom: '6px' }}>
                         📷 Variant-Specific Images ({v.images?.length || 0})
                       </label>
                       <p style={{ fontSize: '10.5px', color: '#64748B', margin: '0 0 8px', lineHeight: 1.4 }}>
-                        Upload or add photos specific to this size/color. If none added, it cleanly falls back to the product's main common gallery.
+                        Upload or add photos specific to this size/spec. If none added, it cleanly falls back to the product's main gallery.
                       </p>
 
                       {/* Variant Thumbnails */}
@@ -1660,40 +1822,344 @@ function ProductModal({ product, onClose, onSave }) {
                         </div>
                       )}
 
-                      {/* Image Upload Button */}
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      {/* Image Upload & Direct URL Input Row */}
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                         <label style={{ padding: '7px 14px', borderRadius: '8px', background: '#FFFFFF', border: '1.5px dashed #CBD5E1', fontSize: '11.5px', fontWeight: 700, color: '#0F172A', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                          <Upload size={13} /> {uploading ? 'Uploading...' : '📷 + Upload Variant Photos'}
+                          <Upload size={13} /> {uploading ? 'Uploading...' : '📷 + Upload Photos'}
                           <input type="file" accept="image/*" multiple onChange={e => handleVariantUploadImage(vIdx, e)} style={{ display: 'none' }} disabled={uploading} />
                         </label>
+
+                        <div style={{ display: 'flex', gap: '4px', flex: 1, minWidth: '180px' }}>
+                          <input
+                            placeholder="Or paste image URL (https://...)"
+                            value={varUrlInputs[vIdx] || ''}
+                            onChange={e => setVarUrlInputs(p => ({ ...p, [vIdx]: e.target.value }))}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleVariantAddImageUrl(vIdx, varUrlInputs[vIdx]);
+                              }
+                            }}
+                            style={{ ...S, background: '#FFFFFF', fontSize: '11px', flex: 1 }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleVariantAddImageUrl(vIdx, varUrlInputs[vIdx])}
+                            style={{
+                              padding: '6px 10px',
+                              borderRadius: '8px',
+                              background: '#0F172A',
+                              color: '#FFFFFF',
+                              fontWeight: 700,
+                              fontSize: '11px',
+                              border: 'none',
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            + Add URL
+                          </button>
+                        </div>
                       </div>
                     </div>
 
                   </div>
                 ))}
 
-                {/* + Add Variant Button */}
-                <button
-                  type="button"
-                  onClick={handleAddVariant}
-                  style={{
-                    padding: '12px',
-                    borderRadius: '12px',
-                    background: '#FFFFFF',
-                    border: '1.5px dashed #0F172A',
-                    color: '#0F172A',
-                    fontWeight: 800,
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <Plus size={16} /> + Add Another Variant (Size / Color)
-                </button>
+                {/* Clean Category-Specific Quick Add Bar */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#F8FAFC', padding: '12px', borderRadius: '14px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#0F172A' }}>
+                      ⚡ 1-Tap Quick Add:
+                    </span>
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                      {(form.category === 'tailoring'
+                        ? ['1.6mm', '2.4mm', '3.2mm', '4.8mm', '6.4mm', '8.0mm', 'Inches', 'Standard']
+                        : ['S', 'M', 'L', 'XL', '2XL', 'Free Size']
+                      ).map(qs => (
+                        <button
+                          key={qs}
+                          type="button"
+                          onClick={() => handleAddVariant(qs === 'Inches' ? '12 x 22 Inches' : qs)}
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            background: '#FFFFFF',
+                            border: '1px solid #CBD5E1',
+                            color: '#0F172A',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '2px'
+                          }}
+                        >
+                          + {qs}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons Row: Add Custom & Import Existing */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', marginTop: '4px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleAddVariant()}
+                      style={{
+                        padding: '10px',
+                        borderRadius: '10px',
+                        background: '#FFFFFF',
+                        border: '1.5px dashed #0F172A',
+                        color: '#0F172A',
+                        fontWeight: 800,
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <Plus size={14} /> + Blank Custom Variant
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowImportModal(true)}
+                      style={{
+                        padding: '10px',
+                        borderRadius: '10px',
+                        background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+                        color: '#FFFFFF',
+                        fontWeight: 800,
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        border: 'none',
+                        boxShadow: '0 2px 8px rgba(15, 23, 42, 0.15)',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <Download size={13} /> 📥 Import {form.category === 'tailoring' ? 'Tailoring' : 'Fashion'} Products
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Modal: Import Uploaded Products as Variants ── */}
+            {showImportModal && (
+              <div style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(15, 23, 42, 0.7)',
+                backdropFilter: 'blur(6px)',
+                zIndex: 1100,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '16px'
+              }}
+              onClick={e => { if (e.target === e.currentTarget) setShowImportModal(false); }}>
+                <div style={{
+                  background: '#FFFFFF',
+                  borderRadius: '20px',
+                  width: '100%',
+                  maxWidth: '520px',
+                  maxHeight: '85vh',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                  overflow: 'hidden'
+                }}>
+                  {/* Header */}
+                  <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <h3 style={{ fontSize: '15px', fontWeight: 900, color: '#0F172A', margin: 0 }}>
+                        📥 Import Uploaded Products as Variants
+                      </h3>
+                      <p style={{ fontSize: '11.5px', color: '#64748B', margin: '2px 0 0', fontWeight: 600 }}>
+                        Showing <strong>{form.category === 'tailoring' ? '🪡 Tailoring Products' : '👗 Fashion Products'}</strong> only (matching current product category).
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowImportModal(false)}
+                      style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B' }}
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+
+                  {/* Search Bar */}
+                  <div style={{ padding: '12px 20px', borderBottom: '1px solid #F1F5F9', background: '#F8FAFC' }}>
+                    <div style={{ position: 'relative' }}>
+                      <Search size={15} color="#94A3B8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                      <input
+                        placeholder={`Search ${form.category === 'tailoring' ? 'tailoring tools' : 'fashion products'} by name or subcategory...`}
+                        value={importSearch}
+                        onChange={e => setImportSearch(e.target.value)}
+                        style={{
+                          ...S,
+                          paddingLeft: '34px',
+                          background: '#FFFFFF',
+                          fontSize: '12.5px'
+                        }}
+                      />
+                      {importSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setImportSearch('')}
+                          style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}
+                        >
+                          <X size={13} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Products List */}
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {(() => {
+                      const targetCategory = (form.category || targetProduct?.category || 'tailoring').toLowerCase();
+
+                      const filtered = (catalogProducts || [])
+                        .filter(cp => cp.id !== targetProduct?.id)
+                        .filter(cp => (cp.category || 'tailoring').toLowerCase() === targetCategory)
+                        .filter(cp => {
+                          if (!importSearch.trim()) return true;
+                          const q = importSearch.toLowerCase();
+                          return (cp.name || '').toLowerCase().includes(q) || (cp.sub_category || '').toLowerCase().includes(q);
+                        });
+
+                      if (filtered.length === 0) {
+                        return (
+                          <div style={{ padding: '30px 10px', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>
+                            No matching {targetCategory === 'tailoring' ? 'tailoring products' : 'fashion products'} found to import.
+                          </div>
+                        );
+                      }
+
+                      return filtered.map(cp => {
+                        const isChecked = selectedImportIds.includes(cp.id);
+                        const detectedSize = extractSizeFromName(cp.name);
+
+                        return (
+                          <div
+                            key={cp.id}
+                            onClick={() => {
+                              setSelectedImportIds(prev =>
+                                isChecked ? prev.filter(id => id !== cp.id) : [...prev, cp.id]
+                              );
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              padding: '10px 12px',
+                              borderRadius: '12px',
+                              border: isChecked ? '1.5px solid #0F172A' : '1px solid #E2E8F0',
+                              background: isChecked ? '#F8FAFC' : '#FFFFFF',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}}
+                              style={{ width: '16px', height: '16px', accentColor: '#0F172A', cursor: 'pointer' }}
+                            />
+
+                            <div style={{ width: '42px', height: '42px', borderRadius: '8px', overflow: 'hidden', background: '#F1F5F9', flexShrink: 0, border: '1px solid #E2E8F0' }}>
+                              <img
+                                src={getProductImage(cp)}
+                                alt=""
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={e => { e.target.src = 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=200&auto=format&fit=crop&q=80'; }}
+                              />
+                            </div>
+
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontSize: '12.5px', fontWeight: 800, color: '#0F172A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {cp.name}
+                              </p>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 900, color: '#0F172A' }}>₹{Number(cp.price || 0).toFixed(0)}</span>
+                                {detectedSize && (
+                                  <span style={{ fontSize: '10px', fontWeight: 800, background: '#0F172A', color: '#FFFFFF', padding: '1px 6px', borderRadius: '4px' }}>
+                                    Size: {detectedSize}
+                                  </span>
+                                )}
+                                <span style={{ fontSize: '11px', color: '#64748B' }}>
+                                  Stock: {cp.stock ?? '100'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+
+                  {/* Footer & Actions */}
+                  <div style={{ padding: '14px 20px', borderTop: '1px solid #E2E8F0', background: '#F8FAFC', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11.5px', fontWeight: 600, color: '#334155' }}>
+                      <input
+                        type="checkbox"
+                        checked={deactivateOriginals}
+                        onChange={e => setDeactivateOriginals(e.target.checked)}
+                        style={{ width: '15px', height: '15px', accentColor: '#0F172A', cursor: 'pointer' }}
+                      />
+                      <span>Deactivate original standalone products in store (Avoid duplicate listings)</span>
+                    </label>
+
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <button
+                        type="button"
+                        onClick={() => { setShowImportModal(false); setSelectedImportIds([]); }}
+                        style={{
+                          padding: '9px 16px',
+                          borderRadius: '10px',
+                          background: '#FFFFFF',
+                          border: '1px solid #CBD5E1',
+                          color: '#475569',
+                          fontWeight: 700,
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleImportSelectedProducts}
+                        disabled={selectedImportIds.length === 0}
+                        style={{
+                          padding: '9px 18px',
+                          borderRadius: '10px',
+                          background: selectedImportIds.length > 0 ? '#0F172A' : '#94A3B8',
+                          color: '#FFFFFF',
+                          fontWeight: 800,
+                          fontSize: '12px',
+                          border: 'none',
+                          cursor: selectedImportIds.length > 0 ? 'pointer' : 'not-allowed',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <Download size={13} /> Import as Variants ({selectedImportIds.length})
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -2527,65 +2993,8 @@ export default function AdminPanel() {
     }
   }, [products.length]);
 
-  // ── COUPON MANAGEMENT STATE ──
-  const DEFAULT_COUPONS = [
-    {
-      code: 'ASMA10',
-      desc: '10% OFF Storewide',
-      type: 'percent',
-      val: 10,
-      scope: 'ALL_PRODUCTS',
-      applicableProductIds: [],
-      applicableCategory: '',
-      minItemPrice: 0,
-      minCartTotal: 0,
-      maxDiscount: 500,
-      active: true,
-      hidden: false
-    },
-    {
-      code: 'WELCOME50',
-      desc: '₹50 OFF on Orders Above ₹299',
-      type: 'flat',
-      val: 50,
-      scope: 'ALL_PRODUCTS',
-      applicableProductIds: [],
-      applicableCategory: '',
-      minItemPrice: 0,
-      minCartTotal: 299,
-      maxDiscount: 0,
-      active: true,
-      hidden: false
-    },
-    {
-      code: 'TAILOR100',
-      desc: '₹100 OFF Tailoring Supplies',
-      type: 'flat',
-      val: 100,
-      scope: 'SPECIFIC_CATEGORY',
-      applicableProductIds: [],
-      applicableCategory: 'tailoring',
-      minItemPrice: 0,
-      minCartTotal: 499,
-      maxDiscount: 0,
-      active: true,
-      hidden: false
-    },
-    {
-      code: 'FASHION20',
-      desc: '20% OFF Women\'s Fashion Items',
-      type: 'percent',
-      val: 20,
-      scope: 'SPECIFIC_CATEGORY',
-      applicableProductIds: [],
-      applicableCategory: 'fashion',
-      minItemPrice: 999,
-      minCartTotal: 0,
-      maxDiscount: 1000,
-      active: true,
-      hidden: false
-    }
-  ];
+  /* ── COUPON MANAGEMENT STATE ── */
+  const DEFAULT_COUPONS = SAFE_DEFAULT_COUPONS;
 
   const [couponsList, setCouponsList] = useState(() => {
     try {
@@ -2595,16 +3004,16 @@ export default function AdminPanel() {
       return DEFAULT_COUPONS;
     }
   });
-
   const [couponModalOpen, setCouponModalOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState(null);
   const [couponForm, setCouponForm] = useState({
     code: '', desc: '', type: 'percent', val: 10,
     scope: 'ALL_PRODUCTS', applicableProductIds: [],
-    applicableCategory: 'tailoring', minItemPrice: 0, minCartTotal: 0,
-    maxDiscount: 0, active: true, hidden: false
+    applicableCategory: 'tailoring', minItemPrice: 0, minCartTotal: 399,
+    maxDiscount: 50, active: true, hidden: false
   });
 
+  // Sync to localStorage
   useEffect(() => {
     try {
       localStorage.setItem('asmalabel_coupons_list', JSON.stringify(couponsList));

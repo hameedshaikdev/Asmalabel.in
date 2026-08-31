@@ -120,20 +120,14 @@ function getUpiAppUrl(appName, shopUpiId, shopUpiName, amount) {
   return `upi://pay?${baseUpi}`;
 }
 
-const DEFAULT_COUPONS = [
-  { code: 'ASMA10', desc: '10% OFF Storewide', type: 'percent', val: 10, scope: 'ALL_PRODUCTS', active: true },
-  { code: 'WELCOME50', desc: '₹50 OFF on Orders Above ₹299', type: 'flat', val: 50, scope: 'ALL_PRODUCTS', minCartTotal: 299, active: true },
-  { code: 'TAILOR100', desc: '₹100 OFF Tailoring Supplies', type: 'flat', val: 100, scope: 'SPECIFIC_CATEGORY', applicableCategory: 'tailoring', minCartTotal: 499, active: true },
-  { code: 'FASHION20', desc: '20% OFF Women\'s Fashion Items', type: 'percent', val: 20, scope: 'SPECIFIC_CATEGORY', applicableCategory: 'fashion', minItemPrice: 999, active: true }
-];
-
-const getStoredCoupons = () => {
-  try {
-    const stored = localStorage.getItem('asmalabel_coupons_list');
-    if (stored) return JSON.parse(stored);
-  } catch (e) { console.error(e); }
-  return DEFAULT_COUPONS;
-};
+import {
+  calculateOrderPricing,
+  validateCouponEligibility,
+  getStoredCoupons,
+  MIN_ORDER_VALUE,
+  SHIPPING_FEE,
+  SAFE_DEFAULT_COUPONS
+} from '../utils/pricing';
 
 /* ─── Main Component ────────────────────────────────────────── */
 export default function Checkout() {
@@ -160,7 +154,10 @@ export default function Checkout() {
   const [instantUpiOpen, setInstantUpiOpen] = useState(false);
   const [customUpiId,   setCustomUpiId]   = useState('');
 
-  const rawSubtotal = getCartTotal ? getCartTotal() : cart.reduce((acc, item) => acc + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
+  const pricing = calculateOrderPricing(cart, appliedCoupon);
+  const rawSubtotal = pricing.rawSubtotal;
+  const couponDiscount = pricing.couponDiscount;
+  const total = pricing.finalPayable;
 
   const handleUpiAppClick = (appName, e) => {
     if (e) e.preventDefault();
@@ -221,49 +218,11 @@ export default function Checkout() {
       return;
     }
 
-    if (targetCpn.minCartTotal > 0 && rawSubtotal < targetCpn.minCartTotal) {
-      setCouponError(`Order subtotal must be at least ₹${targetCpn.minCartTotal} to use code ${targetCpn.code}.`);
+    // Validate using centralized coupon engine (enforces min order spend, scope, max discount cap, no stacking)
+    const result = validateCouponEligibility(targetCpn, cart, rawSubtotal);
+    if (!result.valid) {
+      setCouponError(result.error);
       return;
-    }
-
-    // Filter cart for eligible items based on Scope
-    const eligibleItems = cart.filter(item => {
-      if (targetCpn.scope === 'SPECIFIC_CATEGORY') {
-        return (item.category || '').toLowerCase() === (targetCpn.applicableCategory || '').toLowerCase();
-      }
-      if (targetCpn.scope === 'SELECTED_PRODUCTS') {
-        return Array.isArray(targetCpn.applicableProductIds) && targetCpn.applicableProductIds.includes(item.id);
-      }
-      if (targetCpn.scope === 'MIN_PRICE_TAG') {
-        return Number(item.price || 0) >= Number(targetCpn.minItemPrice || 0);
-      }
-      return true; // ALL_PRODUCTS
-    });
-
-    const eligibleSubtotal = eligibleItems.reduce((acc, item) => acc + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
-
-    if (eligibleSubtotal === 0) {
-      if (targetCpn.scope === 'SPECIFIC_CATEGORY') {
-        const catName = targetCpn.applicableCategory === 'tailoring' ? 'Tailoring Supplies' : 'Fashion';
-        setCouponError(`Coupon ${targetCpn.code} is only valid for ${catName} items.`);
-      } else if (targetCpn.scope === 'SELECTED_PRODUCTS') {
-        setCouponError(`Coupon ${targetCpn.code} only applies to specific selected products.`);
-      } else if (targetCpn.scope === 'MIN_PRICE_TAG') {
-        setCouponError(`Coupon ${targetCpn.code} only applies to individual items priced at or above ₹${targetCpn.minItemPrice}.`);
-      } else {
-        setCouponError(`No items in your cart qualify for coupon ${targetCpn.code}.`);
-      }
-      return;
-    }
-
-    let discountAmount = 0;
-    if (targetCpn.type === 'percent') {
-      discountAmount = (eligibleSubtotal * Number(targetCpn.val)) / 100;
-      if (targetCpn.maxDiscount > 0) {
-        discountAmount = Math.min(discountAmount, Number(targetCpn.maxDiscount));
-      }
-    } else {
-      discountAmount = Math.min(Number(targetCpn.val), eligibleSubtotal);
     }
 
     setAppliedCoupon({
@@ -272,8 +231,8 @@ export default function Checkout() {
       type: targetCpn.type,
       val: targetCpn.val,
       scope: targetCpn.scope,
-      discountAmount,
-      eligibleSubtotal
+      discountAmount: result.discountAmount,
+      eligibleSubtotal: result.eligibleSubtotal
     });
     setPromoInput('');
   };
@@ -282,12 +241,6 @@ export default function Checkout() {
     setAppliedCoupon(null);
     setCouponError('');
   };
-
-  let couponDiscount = 0;
-  if (appliedCoupon) {
-    couponDiscount = Number(appliedCoupon.discountAmount || 0);
-  }
-  const total = Math.max(0, rawSubtotal - couponDiscount);
 
   useEffect(() => {
     (async () => {
@@ -402,6 +355,11 @@ export default function Checkout() {
 
   async function handleAddressSubmit(e) {
     e.preventDefault();
+    if (!pricing.isMinOrderMet) {
+      alert(`Minimum order value is ₹${MIN_ORDER_VALUE}.\nPlease add ₹${pricing.minOrderDeficit} more to proceed with Free Shipping.`);
+      navigate('/cart');
+      return;
+    }
     if (!validateAll()) return;
     setSaving(true);
     try {
@@ -882,22 +840,22 @@ export default function Checkout() {
                 {/* Pricing Breakdown Summary */}
                 <div style={{ marginTop:'16px', background:'#F8FAFC', borderRadius:'14px', border:'1px solid #E2E8F0', padding:'14px', display:'flex', flexDirection:'column', gap:'8px' }}>
                   <div style={{ display:'flex', justifyContent:'space-between', fontSize:'13px', color:'#64748B', fontWeight:600 }}>
-                    <span>Subtotal ({cart.length} item{cart.length !== 1 ? 's' : ''})</span>
-                    <span style={{ color:'#0F172A', fontWeight:800 }}>₹{rawSubtotal.toFixed(2)}</span>
+                    <span>Product Subtotal ({cart.length} item{cart.length !== 1 ? 's' : ''})</span>
+                    <span style={{ color:'#0F172A', fontWeight:800 }}>₹{pricing.rawSubtotal.toFixed(0)}</span>
                   </div>
                   {couponDiscount > 0 && (
                     <div style={{ display:'flex', justifyContent:'space-between', fontSize:'13px', color:'#16A34A', fontWeight:700 }}>
-                      <span>Coupon Discount</span>
-                      <span>-₹{couponDiscount.toFixed(2)}</span>
+                      <span>Coupon Discount ({appliedCoupon?.code})</span>
+                      <span>-₹{pricing.couponDiscount.toFixed(0)}</span>
                     </div>
                   )}
                   <div style={{ display:'flex', justifyContent:'space-between', fontSize:'13px', color:'#64748B', fontWeight:600 }}>
-                    <span>Shipping</span>
-                    <span style={{ color:'#16A34A', fontWeight:800 }}>FREE</span>
+                    <span>Delivery Across India</span>
+                    <span style={{ color:'#16A34A', fontWeight:800 }}>FREE (₹0)</span>
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', paddingTop:'8px', borderTop:'1px dashed #CBD5E1' }}>
                     <span style={{ fontSize:'15px', fontWeight:900, color:'#0F172A' }}>Total Payable</span>
-                    <span style={{ fontSize:'20px', fontWeight:900, color:'#0F172A' }}>₹{total.toFixed(2)}</span>
+                    <span style={{ fontSize:'20px', fontWeight:900, color:'#0F172A' }}>₹{pricing.finalPayable.toFixed(0)}</span>
                   </div>
                 </div>
               </div>

@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   Trash2, Plus, Minus, ArrowRight, Tag,
   ShoppingCart, ShieldCheck, Sparkles, Heart,
-  Scissors, Truck, BadgeCheck, ChevronUp, ChevronDown, Check
+  Scissors, Truck, BadgeCheck, ChevronUp, ChevronDown, Check,
+  AlertCircle
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../config/supabase';
 import { getProductImage } from '../utils/productImages';
+import { calculateOrderPricing, MIN_ORDER_VALUE, SHIPPING_FEE } from '../utils/pricing';
 import SEO from '../components/common/SEO';
 
 export default function Cart() {
@@ -18,11 +20,12 @@ export default function Cart() {
   const [fbtExpanded, setFbtExpanded] = useState(true);
   const [selectedFBT, setSelectedFBT] = useState({});
   const [fbtAddedMsg, setFbtAddedMsg] = useState(false);
+  const [showMinOrderModal, setShowMinOrderModal] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await supabase.from('products').select('*').eq('active', true).limit(10);
+        const { data } = await supabase.from('products').select('*').eq('active', true).limit(60);
         setRecommended(data || []);
       } catch (err) {
         console.error(err);
@@ -30,15 +33,33 @@ export default function Cart() {
     })();
   }, []);
 
+  const safeCart = (cart || []).filter(Boolean);
+  const pricing = calculateOrderPricing(safeCart);
+
+  const cartProductIds = new Set(safeCart.map(i => i.id || i.product_id));
+
+  // Determine dominant cart category: if customer has tailoring tools, strictly show tailoring tools!
+  const dominantCategory = safeCart.find(i => i.category)?.category || 'tailoring';
+
+  const categoryUpsellItems = recommended
+    .filter(p => !cartProductIds.has(p.id))
+    .filter(p => (p.category || 'tailoring').toLowerCase() === dominantCategory.toLowerCase())
+    .sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+
+  const quickAddItems = categoryUpsellItems.length > 0
+    ? categoryUpsellItems.slice(0, 6)
+    : recommended.filter(p => !cartProductIds.has(p.id)).sort((a, b) => Number(a.price || 0) - Number(b.price || 0)).slice(0, 6);
+
   const handleCheckout = () => {
+    if (!pricing.isMinOrderMet) {
+      setShowMinOrderModal(true);
+      return;
+    }
     if (!user) navigate('/login?redirect=/checkout');
     else navigate('/checkout');
   };
 
-  const safeCart = (cart || []).filter(Boolean);
-
-  const cartProductIds = new Set(safeCart.map(i => i.id || i.product_id));
-  const fbtCandidates = recommended.filter(p => !cartProductIds.has(p.id)).slice(0, 2);
+  const fbtCandidates = categoryUpsellItems.slice(0, 2);
 
   useEffect(() => {
     if (fbtCandidates.length > 0) {
@@ -303,6 +324,116 @@ export default function Cart() {
 
           {/* Left Column: Cart Items */}
           <div style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
+
+            {/* ── MINIMUM ORDER & FREE SHIPPING PROGRESS BAR BANNER ── */}
+            <div style={{
+              background: pricing.isMinOrderMet
+                ? 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)'
+                : 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+              border: pricing.isMinOrderMet ? '1.5px solid #86EFAC' : '1.5px solid #FDE68A',
+              borderRadius: '20px',
+              padding: '16px 18px',
+              boxShadow: '0 4px 14px rgba(15,23,42,0.04)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '18px' }}>{pricing.isMinOrderMet ? '🎉' : '🛍️'}</span>
+                  <div>
+                    <h3 style={{ fontSize: '14px', fontWeight: 900, color: pricing.isMinOrderMet ? '#15803D' : '#92400E', margin: 0 }}>
+                      {pricing.isMinOrderMet
+                        ? 'Minimum Order Reached! (₹299)'
+                        : `Add ₹${pricing.minOrderDeficit} more to reach ₹299 minimum order`}
+                    </h3>
+                    <p style={{ fontSize: '11.5px', color: pricing.isMinOrderMet ? '#166534' : '#B45309', margin: '2px 0 0', fontWeight: 600 }}>
+                      {pricing.isMinOrderMet
+                        ? '🚚 100% Free Shipping Unlocked Across India'
+                        : '🚚 Unlock Free Shipping with ₹299 minimum cart value'}
+                    </p>
+                  </div>
+                </div>
+
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 900,
+                  color: pricing.isMinOrderMet ? '#15803D' : '#92400E',
+                  background: 'rgba(255,255,255,0.85)',
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  border: pricing.isMinOrderMet ? '1px solid #86EFAC' : '1px solid #FDE68A'
+                }}>
+                  {pricing.progressPercent}% {pricing.isMinOrderMet ? '✓ UNLOCKED' : `(₹${pricing.rawSubtotal}/₹299)`}
+                </span>
+              </div>
+
+              {/* Progress Bar */}
+              <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.06)', borderRadius: '99px', overflow: 'hidden' }}>
+                <div style={{
+                  width: `${pricing.progressPercent}%`,
+                  height: '100%',
+                  background: pricing.isMinOrderMet
+                    ? 'linear-gradient(90deg, #10B981, #059669)'
+                    : 'linear-gradient(90deg, #F59E0B, #D97706)',
+                  borderRadius: '99px',
+                  transition: 'width 0.4s ease'
+                }} />
+              </div>
+
+              {/* 1-Tap Quick Add Upsell Carousel (when below ₹299 - Category Aware) */}
+              {!pricing.isMinOrderMet && quickAddItems.length > 0 && (
+                <div style={{ marginTop: '4px', paddingTop: '10px', borderTop: '1px dashed rgba(180, 83, 9, 0.2)' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#92400E', display: 'block', marginBottom: '8px' }}>
+                    💡 Quick Add {dominantCategory === 'tailoring' ? 'Tailoring Tools' : 'Items'} to Reach ₹299:
+                  </span>
+                  <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+                    {quickAddItems.map(p => {
+                      const pPrice = Number(p.price || 0);
+                      return (
+                        <div key={p.id} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          background: '#FFFFFF',
+                          borderRadius: '10px',
+                          padding: '6px 8px',
+                          border: '1px solid #FDE68A',
+                          flexShrink: 0,
+                          maxWidth: '220px'
+                        }}>
+                          <img src={getProductImage(p)} alt="" style={{ width: '34px', height: '34px', borderRadius: '6px', objectFit: 'cover' }} />
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <p style={{ fontSize: '11px', fontWeight: 800, color: '#0F172A', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {p.name}
+                            </p>
+                            <span style={{ fontSize: '11px', fontWeight: 900, color: '#D97706' }}>₹{pPrice.toFixed(0)}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => addToCart(p, 1)}
+                            style={{
+                              background: '#0F172A',
+                              color: '#FFFFFF',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '4px 8px',
+                              fontSize: '10.5px',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            + Add
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {safeCart.map(item => {
               const itemPrice = Number(item?.price || 0);
               const itemOrigPrice = Number(item?.original_price || 0);
@@ -583,18 +714,18 @@ export default function Cart() {
             <div className="cart-summary-card" style={{ background:'rgba(255, 255, 255, 0.85)', backdropFilter:'blur(28px)', WebkitBackdropFilter:'blur(28px)', borderRadius:'28px', padding:'24px', boxShadow:'0 20px 48px -8px rgba(15,23,42,0.12)', border:'1px solid rgba(255, 255, 255, 0.95)', height:'fit-content' }}>
               <h2 style={{ fontWeight:900, fontSize:'20px', color:'#0F172A', marginBottom:'20px', letterSpacing:'-0.4px' }}>Order Summary</h2>
 
-              {savings > 0 && (
+              {pricing.totalSavings > 0 && (
                 <div style={{ display:'flex', alignItems:'center', gap:'8px', background:'rgba(48,209,88,0.12)', border:'1px solid rgba(48,209,88,0.3)', borderRadius:'9999px', padding:'10px 16px', marginBottom:'20px' }}>
                   <Tag size={16} color="#16A34A" />
-                  <span style={{ fontSize:'13px', fontWeight:800, color:'#166534' }}>You save ₹{savings.toFixed(0)} on this order!</span>
+                  <span style={{ fontSize:'13px', fontWeight:800, color:'#166534' }}>You save ₹{pricing.totalSavings.toFixed(0)} on this order!</span>
                 </div>
               )}
 
               <div style={{ display:'flex', flexDirection:'column', gap:'14px', marginBottom:'24px' }}>
                 {[
-                  ['Subtotal', `₹${cartTotal.toFixed(0)}`],
-                  ['Express Delivery', 'FREE', '#30D158'],
-                  ...(savings > 0 ? [['Discount Savings', `-₹${savings.toFixed(0)}`, '#30D158']] : []),
+                  ['Product Subtotal', `₹${pricing.rawSubtotal.toFixed(0)}`],
+                  ['Delivery Across India', 'FREE (₹0)', '#16A34A'],
+                  ...(pricing.totalSavings > 0 ? [['Discount Savings', `-₹${pricing.totalSavings.toFixed(0)}`, '#16A34A']] : []),
                 ].map(([label, value, color]) => (
                   <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                     <span style={{ fontSize:'14px', color:'#64748B', fontWeight:600 }}>{label}</span>
@@ -603,12 +734,32 @@ export default function Cart() {
                 ))}
                 <div style={{ borderTop:'1px solid rgba(226,232,240,0.8)', paddingTop:'14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                   <span style={{ fontWeight:800, fontSize:'16px', color:'#0F172A' }}>Total Payable</span>
-                  <span style={{ fontWeight:900, fontSize:'24px', color:'#0F172A', letterSpacing:'-0.5px' }}>₹{cartTotal.toFixed(0)}</span>
+                  <span style={{ fontWeight:900, fontSize:'24px', color:'#0F172A', letterSpacing:'-0.5px' }}>₹{pricing.finalPayable.toFixed(0)}</span>
                 </div>
               </div>
 
-              <button className="sh-btn" style={{ width:'100%', justifyContent:'center', height:'52px' }} onClick={handleCheckout}>
-                Proceed to Checkout <ArrowRight size={18} />
+              {/* Checkout Button */}
+              <button
+                className="sh-btn"
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  height: '52px',
+                  background: pricing.isMinOrderMet
+                    ? 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)'
+                    : '#94A3B8',
+                  cursor: pricing.isMinOrderMet ? 'pointer' : 'not-allowed',
+                  boxShadow: pricing.isMinOrderMet ? '0 8px 24px rgba(15,23,42,0.18)' : 'none',
+                  fontSize: '14px',
+                  fontWeight: 800
+                }}
+                onClick={handleCheckout}
+              >
+                {pricing.isMinOrderMet ? (
+                  <>Proceed to Checkout <ArrowRight size={18} /></>
+                ) : (
+                  <>Add ₹{pricing.minOrderDeficit} More to Checkout</>
+                )}
               </button>
 
               <button onClick={() => navigate('/')}
@@ -732,10 +883,210 @@ export default function Cart() {
 
       </div>
 
+      {/* ── MINIMUM ORDER VALUE MODAL & BOTTOM SHEET (For Both Mobile & PC) ── */}
+      {showMinOrderModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.72)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          zIndex: 1200,
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+          padding: '0'
+        }}
+        onClick={e => { if (e.target === e.currentTarget) setShowMinOrderModal(false); }}>
+          <div className="cart-mov-modal-box" style={{
+            background: '#FFFFFF',
+            borderRadius: '24px 24px 0 0',
+            width: '100%',
+            maxWidth: '520px',
+            maxHeight: '88vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 -20px 48px rgba(0, 0, 0, 0.28)',
+            overflow: 'hidden'
+          }}>
+            {/* Header */}
+            <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#FFFFFF' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '22px' }}>{pricing.isMinOrderMet ? '🎉' : '🛍️'}</span>
+                <div>
+                  <h3 style={{ fontSize: '15px', fontWeight: 900, color: '#0F172A', margin: 0 }}>
+                    {pricing.isMinOrderMet
+                      ? 'Minimum Order Reached! (₹299)'
+                      : `Add ₹${pricing.minOrderDeficit} more to checkout`}
+                  </h3>
+                  <p style={{ fontSize: '11.5px', color: '#64748B', margin: '2px 0 0', fontWeight: 600 }}>
+                    {pricing.isMinOrderMet
+                      ? '🚚 100% Free Shipping Unlocked Across India'
+                      : `Minimum order value: ₹299 • 🚚 Free Shipping Across India`}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowMinOrderModal(false)}
+                style={{
+                  background: '#F1F5F9', border: 'none', borderRadius: '50%',
+                  width: '32px', height: '32px', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', cursor: 'pointer', color: '#64748B',
+                  fontWeight: 800, fontSize: '14px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Progress Bar inside Modal */}
+            <div style={{ padding: '12px 20px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 800, marginBottom: '6px' }}>
+                <span style={{ color: '#64748B' }}>Cart Total: <strong style={{ color: '#0F172A' }}>₹{pricing.rawSubtotal.toFixed(0)}</strong></span>
+                <span style={{ color: pricing.isMinOrderMet ? '#16A34A' : '#D97706' }}>
+                  {pricing.isMinOrderMet ? '✓ UNLOCKED' : `Target: ₹299 (${pricing.progressPercent}%)`}
+                </span>
+              </div>
+              <div style={{ width: '100%', height: '8px', background: '#E2E8F0', borderRadius: '99px', overflow: 'hidden' }}>
+                <div style={{
+                  width: `${pricing.progressPercent}%`,
+                  height: '100%',
+                  background: pricing.isMinOrderMet
+                    ? 'linear-gradient(90deg, #10B981, #059669)'
+                    : 'linear-gradient(90deg, #F59E0B, #D97706)',
+                  borderRadius: '99px',
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+            </div>
+
+            {/* Recommended Products Body (Strictly Category-Aware) */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <p style={{ fontSize: '11.5px', fontWeight: 800, color: '#475569', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '.4px' }}>
+                💡 Quick Add {dominantCategory === 'tailoring' ? 'Tailoring Tools' : 'Items'} to Reach ₹299:
+              </p>
+
+              {quickAddItems.map(p => {
+                const pPrice = Number(p.price || 0);
+                const pOrig = Number(p.original_price || 0);
+                return (
+                  <div key={p.id} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    padding: '10px 12px',
+                    background: '#FFFFFF',
+                    borderRadius: '14px',
+                    border: '1px solid #E2E8F0',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                      <img src={getProductImage(p)} alt="" style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover', background: '#F8FAFC', flexShrink: 0 }} />
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontSize: '12.5px', fontWeight: 800, color: '#0F172A', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.name}
+                        </p>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 900, color: '#0F172A' }}>₹{pPrice.toFixed(0)}</span>
+                          {pOrig > pPrice && (
+                            <span style={{ fontSize: '11px', color: '#94A3B8', textDecoration: 'line-through' }}>₹{pOrig.toFixed(0)}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => addToCart(p, 1)}
+                      style={{
+                        padding: '7px 14px',
+                        borderRadius: '8px',
+                        background: '#0F172A',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        fontSize: '12px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      + Add
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ padding: '14px 20px', borderTop: '1px solid #E2E8F0', background: '#F8FAFC', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {pricing.isMinOrderMet ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMinOrderModal(false);
+                    if (!user) navigate('/login?redirect=/checkout');
+                    else navigate('/checkout');
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    fontWeight: 900,
+                    fontSize: '15px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)'
+                  }}
+                >
+                  Proceed to Checkout (₹{pricing.finalPayable.toFixed(0)}) →
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMinOrderModal(false);
+                    navigate('/');
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    background: '#FFFFFF',
+                    border: '1px solid #CBD5E1',
+                    color: '#0F172A',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Explore More {dominantCategory === 'tailoring' ? 'Tailoring Tools' : 'Collection'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         @media(min-width:768px) {
           #cart-layout {
             grid-template-columns: minmax(0,1.6fr) 380px !important;
+          }
+          .cart-mov-modal-box {
+            border-radius: 24px !important;
+            margin: auto !important;
           }
         }
         @media(max-width:640px) {

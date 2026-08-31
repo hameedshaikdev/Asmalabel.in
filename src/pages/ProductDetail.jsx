@@ -504,6 +504,8 @@ export default function ProductDetail() {
   const handlePrev = () => setSelImg(i => Math.max(i - 1, 0));
   const handleNext = (total) => setSelImg(i => Math.min(i + 1, total - 1));
 
+  const currentTitle = (activeVariant?.title && activeVariant.title.trim()) || product?.name;
+
   const priceNum = activeVariant
     ? (activeVariant.price !== undefined && activeVariant.price !== null && activeVariant.price !== '' ? Number(activeVariant.price) : Number(product?.price || 0))
     : Number(product?.price || 0);
@@ -851,9 +853,9 @@ export default function ProductDetail() {
           {/* ── DETAILS SECTION ── */}
           <div className="pd-details-section">
 
-            {/* Product Title */}
+            {/* Product Title (Dynamically switches according to active variant) */}
             <h1 className="pd-title-heading">
-              {product.name}
+              {currentTitle}
             </h1>
 
             {/* Price Presentation */}
@@ -987,6 +989,69 @@ export default function ProductDetail() {
                           opacity: comboExists ? 1 : 0.45,
                         }}
                       />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Multi-Quantity Pack Selector for Low-Cost Tailoring Tools & Accessories */}
+            {!isOutOfStock && priceNum <= 250 && (
+              <div style={{ marginTop: '12px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '.4px', display: 'block', marginBottom: '6px' }}>
+                  📦 Value Pack Deals:
+                </span>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {[
+                    { count: 1, label: '1 Pc', save: null },
+                    { count: 3, label: 'Pack of 3', save: Math.round(priceNum * 3 * 0.12) },
+                    { count: 5, label: 'Pack of 5', save: Math.round(priceNum * 5 * 0.20) }
+                  ].map(tier => {
+                    const isSelected = quantity === tier.count;
+                    const tierTotal = priceNum * tier.count - (tier.save || 0);
+
+                    return (
+                      <button
+                        key={tier.count}
+                        type="button"
+                        onClick={() => setQuantity(tier.count)}
+                        style={{
+                          flex: 1,
+                          minWidth: '85px',
+                          padding: '8px 10px',
+                          borderRadius: '12px',
+                          border: isSelected ? '2px solid #0F172A' : '1.5px solid #E2E8F0',
+                          background: isSelected ? '#0F172A' : '#FFFFFF',
+                          color: isSelected ? '#FFFFFF' : '#0F172A',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '2px',
+                          transition: 'all 0.18s ease',
+                          position: 'relative'
+                        }}
+                      >
+                        {tier.save && (
+                          <span style={{
+                            position: 'absolute',
+                            top: '-7px',
+                            background: '#16A34A',
+                            color: '#FFFFFF',
+                            fontSize: '8.5px',
+                            fontWeight: 800,
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            letterSpacing: '.3px'
+                          }}>
+                            SAVE ₹{tier.save}
+                          </span>
+                        )}
+                        <span style={{ fontSize: '12px', fontWeight: 800 }}>{tier.label}</span>
+                        <span style={{ fontSize: '11px', fontWeight: 900, opacity: isSelected ? 0.9 : 0.75 }}>
+                          ₹{tierTotal.toFixed(0)}
+                        </span>
+                      </button>
                     );
                   })}
                 </div>
@@ -1175,7 +1240,7 @@ export default function ProductDetail() {
             </div>
 
             {/* ── COLLAPSIBLE DESCRIPTION ACCORDION ── */}
-            {cleanDesc && (
+            {(cleanDesc || activeVariant?.description) && (
               <div className="pd-accordion-card">
                 <div className="pd-accordion-header" onClick={() => setDescOpen(!descOpen)}>
                   <span className="pd-accordion-title">Description & Specifications</span>
@@ -1183,7 +1248,26 @@ export default function ProductDetail() {
                 </div>
                 {descOpen && (
                   <div className="pd-accordion-body">
-                    <ProductDescription description={cleanDesc} />
+                    {activeVariant?.description && (
+                      <div style={{
+                        background: '#F8FAFC',
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        border: '1.5px solid #E2E8F0',
+                        marginBottom: '14px',
+                        fontSize: '13px',
+                        color: '#0F172A',
+                        lineHeight: 1.55
+                      }}>
+                        <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '.5px' }}>
+                          ⚡ Option Specifications ({selectedSize || activeVariant.size || 'Selected Variant'}):
+                        </div>
+                        <div style={{ fontWeight: 600, whiteSpace: 'pre-line' }}>
+                          {activeVariant.description}
+                        </div>
+                      </div>
+                    )}
+                    {cleanDesc && <ProductDescription description={cleanDesc} />}
                   </div>
                 )}
               </div>

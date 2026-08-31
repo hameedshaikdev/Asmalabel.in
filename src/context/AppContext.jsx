@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../config/supabase';
 import { DEFAULT_CMS_DATA } from '../utils/cmsDefaults';
+import { MIN_ORDER_VALUE, SHIPPING_FEE } from '../utils/pricing';
 
 const AppContext = createContext(null);
 
@@ -134,6 +135,8 @@ export function AppProvider({ children }) {
   };
   const getCartTotal = () => cart.reduce((t, i) => t + Number(i.price || 0) * Number(i.quantity || 1), 0);
   const getCartCount = () => cart.reduce((t, i) => t + Number(i.quantity || 1), 0);
+  const isMinOrderMet = () => getCartTotal() >= MIN_ORDER_VALUE;
+  const getMinOrderDeficit = () => Math.max(0, MIN_ORDER_VALUE - getCartTotal());
 
   // Wishlist
   const addToWishlist = (p) => {
@@ -277,6 +280,7 @@ export function AppProvider({ children }) {
   const value = {
     activeCategory, setActiveCategory,
     cart, addToCart, removeFromCart, updateCartQuantity, clearCart, getCartTotal, getCartCount,
+    MIN_ORDER_VALUE, SHIPPING_FEE, isMinOrderMet, getMinOrderDeficit,
     wishlist, addToWishlist, removeFromWishlist, isInWishlist,
     user, setUser, loading,
     toast, showToast, closeToast,

@@ -103,25 +103,11 @@ export default function Profile() {
     }
   }, [user, loading, navigate]);
 
-  const DEFAULT_COUPONS = [
-    { code: 'ASMA10', desc: '10% OFF Storewide', type: 'percent', val: 10, scope: 'ALL_PRODUCTS', active: true, hidden: false },
-    { code: 'WELCOME50', desc: '₹50 OFF on Orders Above ₹299', type: 'flat', val: 50, scope: 'ALL_PRODUCTS', minCartTotal: 299, active: true, hidden: false },
-    { code: 'TAILOR100', desc: '₹100 OFF Tailoring Supplies', type: 'flat', val: 100, scope: 'SPECIFIC_CATEGORY', applicableCategory: 'tailoring', minCartTotal: 499, active: true, hidden: false },
-    { code: 'FASHION20', desc: '20% OFF Women\'s Fashion Items', type: 'percent', val: 20, scope: 'SPECIFIC_CATEGORY', applicableCategory: 'fashion', minItemPrice: 999, active: true, hidden: false }
-  ];
-
   const [couponsList, setCouponsList] = useState([]);
 
   useEffect(() => {
     const loadCoupons = () => {
-      try {
-        const stored = localStorage.getItem('asmalabel_coupons_list');
-        if (stored) {
-          setCouponsList(JSON.parse(stored));
-          return;
-        }
-      } catch (e) { console.error(e); }
-      setCouponsList(DEFAULT_COUPONS);
+      setCouponsList(getStoredCoupons());
     };
 
     loadCoupons();
