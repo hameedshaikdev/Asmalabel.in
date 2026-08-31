@@ -1617,53 +1617,114 @@ function ProductModal({ product, onClose, onSave }) {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
                       <div style={{ minWidth: 0 }}>
                         <label style={{ fontSize: '11px', fontWeight: 800, color: '#0F172A', display: 'block', marginBottom: '4px' }}>
-                          {form.category === 'tailoring' ? '📏 Size / Dimension (e.g. 1.6mm, 12 x 22 Inches)' : '👗 Size (e.g. S, M, L, XL, 32)'} *
+                          {form.category === 'tailoring' ? '📏 Sizing Menu (mm, inches, pack)' : '👗 Sizing Menu (XS, S, M, L, XL)'} *
                         </label>
                         
-                        {/* 100% Full-Width Clean Size Input */}
-                        <input
-                          placeholder={form.category === 'tailoring' ? 'e.g. 1.6mm, 12 x 22 Inches, 60 Inch' : 'e.g. S, M, L, XL, 32, Free Size'}
+                        {/* Primary Dropdown Menu (No button pills) */}
+                        <select
                           value={v.size || ''}
                           onChange={e => handleUpdateVariant(vIdx, 'size', e.target.value)}
-                          style={{ ...S, width: '100%', fontWeight: 700 }}
-                        />
+                          style={{
+                            ...S,
+                            width: '100%',
+                            background: '#FFFFFF',
+                            fontWeight: 700,
+                            color: '#0F172A',
+                            cursor: 'pointer',
+                            marginBottom: '6px'
+                          }}
+                        >
+                          <option value="">
+                            -- Select {form.category === 'tailoring' ? 'Tailoring Size / Unit' : 'Fashion Size'} --
+                          </option>
+                          {form.category === 'tailoring' ? (
+                            <>
+                              <optgroup label="📏 Millimeters (mm)">
+                                <option value="1.0mm">1.0mm</option>
+                                <option value="1.6mm">1.6mm (1/16")</option>
+                                <option value="2.0mm">2.0mm</option>
+                                <option value="2.4mm">2.4mm (3/32")</option>
+                                <option value="3.0mm">3.0mm</option>
+                                <option value="3.2mm">3.2mm (1/8")</option>
+                                <option value="4.0mm">4.0mm (5/32")</option>
+                                <option value="4.8mm">4.8mm (3/16")</option>
+                                <option value="5.0mm">5.0mm</option>
+                                <option value="6.0mm">6.0mm</option>
+                                <option value="6.4mm">6.4mm (1/4")</option>
+                                <option value="8.0mm">8.0mm (5/16")</option>
+                                <option value="9.5mm">9.5mm (3/8")</option>
+                                <option value="10.0mm">10.0mm</option>
+                                <option value="12.0mm">12.0mm (1/2")</option>
+                              </optgroup>
+                              <optgroup label="📐 Inches (e.g. 12 x 22 Inches)">
+                                <option value="12 x 22 Inches">12 x 22 Inches</option>
+                                <option value="0.5 Inch">0.5 Inch (1/2")</option>
+                                <option value="1.0 Inch">1.0 Inch</option>
+                                <option value="1.5 Inch">1.5 Inch</option>
+                                <option value="2.0 Inch">2.0 Inch</option>
+                                <option value="3.0 Inch">3.0 Inch</option>
+                                <option value="4.0 Inch">4.0 Inch</option>
+                                <option value="6.0 Inch">6.0 Inch</option>
+                                <option value="8.0 Inch">8.0 Inch</option>
+                                <option value="10.0 Inch">10.0 Inch</option>
+                                <option value="12.0 Inch">12.0 Inch</option>
+                                <option value="60 Inch (150 cm)">60 Inch (150 cm)</option>
+                              </optgroup>
+                              <optgroup label="📦 Packs & Standards">
+                                <option value="Standard">Standard / Universal</option>
+                                <option value="Pack of 1">Pack of 1</option>
+                                <option value="Pack of 3">Pack of 3</option>
+                                <option value="Pack of 5">Pack of 5</option>
+                                <option value="Pack of 10">Pack of 10</option>
+                                <option value="Free Size">Free Size</option>
+                              </optgroup>
+                            </>
+                          ) : (
+                            <>
+                              <optgroup label="👗 Standard Apparel Sizes">
+                                <option value="XS">XS (Extra Small)</option>
+                                <option value="S">S (Small)</option>
+                                <option value="M">M (Medium)</option>
+                                <option value="L">L (Large)</option>
+                                <option value="XL">XL (Extra Large)</option>
+                                <option value="2XL">2XL (Double XL)</option>
+                                <option value="3XL">3XL (Triple XL)</option>
+                                <option value="4XL">4XL</option>
+                                <option value="5XL">5XL</option>
+                                <option value="Free Size">Free Size / Universal Fit</option>
+                              </optgroup>
+                              <optgroup label="🔢 Numeric Waist/Bust (Inches)">
+                                <option value="28">28</option>
+                                <option value="30">30</option>
+                                <option value="32">32</option>
+                                <option value="34">34</option>
+                                <option value="36">36</option>
+                                <option value="38">38</option>
+                                <option value="40">40</option>
+                                <option value="42">42</option>
+                                <option value="44">44</option>
+                              </optgroup>
+                              <optgroup label="🧒 Kids & Custom">
+                                <option value="Kids (2-4 Yrs)">Kids (2-4 Yrs)</option>
+                                <option value="Kids (5-7 Yrs)">Kids (5-7 Yrs)</option>
+                                <option value="Kids (8-10 Yrs)">Kids (8-10 Yrs)</option>
+                                <option value="Kids (11-14 Yrs)">Kids (11-14 Yrs)</option>
+                                <option value="Unstitched">Unstitched / Fabric Material</option>
+                              </optgroup>
+                            </>
+                          )}
+                          {v.size && (
+                            <option value={v.size}>Selected: {v.size}</option>
+                          )}
+                        </select>
 
-                        {/* Quick 1-Tap Unit Helper Pills */}
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
-                          {(form.category === 'tailoring'
-                            ? ['1.6mm', '2.4mm', '3.2mm', 'mm', 'Inches', 'cm', 'Pcs', 'Standard']
-                            : ['S', 'M', 'L', 'XL', '2XL', 'Free Size']
-                          ).map(u => (
-                            <button
-                              key={u}
-                              type="button"
-                              onClick={() => {
-                                const cur = (v.size || '').trim();
-                                if (!cur) {
-                                  handleUpdateVariant(vIdx, 'size', u);
-                                } else if (['mm', 'Inches', 'cm', 'Pcs'].includes(u)) {
-                                  if (!cur.toLowerCase().includes(u.toLowerCase())) {
-                                    handleUpdateVariant(vIdx, 'size', `${cur} ${u}`);
-                                  }
-                                } else {
-                                  handleUpdateVariant(vIdx, 'size', u);
-                                }
-                              }}
-                              style={{
-                                padding: '3px 8px',
-                                borderRadius: '6px',
-                                background: '#F1F5F9',
-                                border: '1px solid #CBD5E1',
-                                fontSize: '10.5px',
-                                fontWeight: 700,
-                                color: '#334155',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              + {u}
-                            </button>
-                          ))}
-                        </div>
+                        {/* Direct Editable Input for Custom values like "12 x 22 Inches" */}
+                        <input
+                          placeholder="Or type custom (e.g. 12 x 22 Inches)..."
+                          value={v.size || ''}
+                          onChange={e => handleUpdateVariant(vIdx, 'size', e.target.value)}
+                          style={{ ...S, width: '100%', fontSize: '12px', background: '#F8FAFC', color: '#0F172A', fontWeight: 600 }}
+                        />
                       </div>
 
                       <div style={{ minWidth: 0 }}>
