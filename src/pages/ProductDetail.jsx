@@ -14,6 +14,7 @@ import { useApp } from '../context/AppContext';
 import { supabase } from '../config/supabase';
 import { getProductImage, parseProductTags, getOptimizedImageUrl } from '../utils/productImages';
 import { getColorName, getColorSwatch } from '../utils/colorUtils';
+import { sortVariantsAscending, compareSizesAscending } from '../utils/sizeSorting';
 import ProductDescription from '../components/products/ProductDescription';
 import SEO from '../components/common/SEO';
 import ProductVideoPlayer from '../components/products/ProductVideoPlayer';
@@ -269,23 +270,24 @@ export default function ProductDetail() {
     };
   }, [id]);
 
-  // Dynamic variant detection
+  // Dynamic variant detection (Automatically sorted in ascending measurement order)
   const productVariants = useMemo(() => {
-    if (product?.variants && Array.isArray(product.variants) && product.variants.length > 0) return product.variants;
-    if (parsedVariants && Array.isArray(parsedVariants) && parsedVariants.length > 0) return parsedVariants;
-    return [];
+    let list = [];
+    if (product?.variants && Array.isArray(product.variants) && product.variants.length > 0) list = product.variants;
+    else if (parsedVariants && Array.isArray(parsedVariants) && parsedVariants.length > 0) list = parsedVariants;
+    return sortVariantsAscending(list);
   }, [product, parsedVariants]);
   const hasVariants = productVariants.length > 0;
   const variants = productVariants;
 
-  // Extract unique sizes from variants
+  // Extract unique sizes from variants (Always sorted in ascending measurement order)
   const availableSizes = useMemo(() => {
     if (!hasVariants) return [];
     const set = [];
     variants.forEach(v => {
       if (v.size && !set.includes(v.size)) set.push(v.size);
     });
-    return set;
+    return set.sort(compareSizesAscending);
   }, [hasVariants, variants]);
 
   // Extract all available colors (aggregates variants + color options + parsed tags)

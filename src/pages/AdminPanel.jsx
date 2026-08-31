@@ -15,6 +15,7 @@ import { supabase } from '../config/supabase';
 import { useApp } from '../context/AppContext';
 import { getProductImage, parseProductTags } from '../utils/productImages';
 import { getColorName, getColorSwatch, PRESET_COLORS } from '../utils/colorUtils';
+import { sortVariantsAscending, compareSizesAscending } from '../utils/sizeSorting';
 import { normalizeCategoryKey, DEFAULT_CMS_DATA } from '../utils/cmsDefaults';
 import {
   ToastContainer, ConfirmDialog, CommandPalette,
@@ -643,6 +644,14 @@ function ProductModal({ product, onClose, onSave }) {
   }
 
   /* ── Variant Action Handlers ── */
+  function handleSortVariantsAscending() {
+    setForm(p => ({
+      ...p,
+      variants: sortVariantsAscending(p.variants || [])
+    }));
+    toast('⚡ Variants sorted in ascending measurement order!', 'success');
+  }
+
   function handleAddVariant(initialSize = '') {
     const newVar = {
       id: `var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -658,11 +667,15 @@ function ProductModal({ product, onClose, onSave }) {
       images: [],
       is_default: (form.variants || []).length === 0,
     };
-    setForm(p => ({
-      ...p,
-      variants_enabled: true,
-      variants: [...(p.variants || []), newVar]
-    }));
+    setForm(p => {
+      const combined = [...(p.variants || []), newVar];
+      const sorted = initialSize ? sortVariantsAscending(combined) : combined;
+      return {
+        ...p,
+        variants_enabled: true,
+        variants: sorted
+      };
+    });
   }
 
   function handleUpdateVariant(index, field, value) {
@@ -900,7 +913,7 @@ function ProductModal({ product, onClose, onSave }) {
     setForm(p => ({
       ...p,
       variants_enabled: true,
-      variants: [...(p.variants || []), ...newImportedVariants]
+      variants: sortVariantsAscending([...(p.variants || []), ...newImportedVariants])
     }));
 
     setSelectedImportIds([]);
@@ -959,7 +972,7 @@ function ProductModal({ product, onClose, onSave }) {
           if (!cleaned.some(v => v.is_default)) {
             cleaned[0].is_default = true;
           }
-          variantsPayload = cleaned;
+          variantsPayload = sortVariantsAscending(cleaned);
         }
       }
 
@@ -1656,6 +1669,33 @@ function ProductModal({ product, onClose, onSave }) {
                   />
                   <span>📦 Auto-add each variant as a separate product in {form.category === 'tailoring' ? 'Tailoring' : 'Fashion'} catalog (sizes linked)</span>
                 </label>
+
+                {/* Variants Toolbar: Count & Instant Auto-Sort Ascending */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#475569' }}>
+                    {form.variants?.length || 0} Variants Listed
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSortVariantsAscending}
+                    title="Sort all variants in ascending numerical / measurement order (e.g. 1.6mm → 2.4mm → 3.2mm or XS → S → M → L)"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 10px',
+                      borderRadius: '8px',
+                      background: '#EFF6FF',
+                      border: '1px solid #BFDBFE',
+                      color: '#1D4ED8',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ⚡ Auto-Sort Ascending (Smallest → Largest)
+                  </button>
+                </div>
 
                 {(form.variants || []).map((v, vIdx) => (
                   <div key={v.id || vIdx} style={{
