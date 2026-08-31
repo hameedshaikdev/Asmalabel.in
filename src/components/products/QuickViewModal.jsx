@@ -14,7 +14,7 @@ export default function QuickViewModal({ product, onClose }) {
   const [added, setAdded] = useState(false);
 
   const parsedTags = useMemo(() => parseProductTags(product || {}), [product]);
-  const { cleanDesc, discount_tag, colors: parsedColors, variants: parsedVariants, images: parsedImages } = parsedTags;
+  const { cleanDesc, badge, discount_tag, colors: parsedColors, variants: parsedVariants, images: parsedImages } = parsedTags;
 
   // Variant State
   const productVariants = useMemo(() => {
@@ -374,20 +374,28 @@ export default function QuickViewModal({ product, onClose }) {
                   style={{ width: '100%', height: '100%', objectFit: 'contain', userSelect: 'none', WebkitUserDrag: 'none' }}
                 />
 
+                {/* Circular Rust-Red Discount Badge (like img1) */}
                 {discount && (
                   <div style={{
                     position: 'absolute',
                     top: '12px',
                     left: '12px',
-                    background: 'linear-gradient(135deg, #10B981, #059669)',
-                    color: 'white',
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    padding: '4px 12px',
-                    borderRadius: '9999px',
-                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)'
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: '#C23A0B',
+                    color: '#FFFFFF',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    lineHeight: '1.05',
+                    boxShadow: '0 3px 10px rgba(194, 58, 11, 0.4)',
+                    zIndex: 2,
+                    pointerEvents: 'none'
                   }}>
-                    -{discount}% OFF
+                    <span style={{ fontSize: '12px', fontWeight: 900, letterSpacing: '-0.2px' }}>{discount}%</span>
+                    <span style={{ fontSize: '9.5px', fontWeight: 800, textTransform: 'lowercase' }}>off</span>
                   </div>
                 )}
 
@@ -471,7 +479,22 @@ export default function QuickViewModal({ product, onClose }) {
             <div style={{ padding: '32px 28px', display: 'flex', flexDirection: 'column' }}>
 
               {/* Tag & Category */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                {(badge || product?.badge) && (
+                  <span style={{
+                    background: '#6318EB',
+                    color: '#FFFFFF',
+                    fontSize: '10.5px',
+                    fontWeight: 800,
+                    letterSpacing: '0.6px',
+                    padding: '3px 10px',
+                    borderRadius: '6px',
+                    textTransform: 'uppercase',
+                    boxShadow: '0 2px 6px rgba(99, 24, 235, 0.25)'
+                  }}>
+                    {badge || product.badge}
+                  </span>
+                )}
                 <span style={{
                   fontSize: '10px',
                   fontWeight: 800,
@@ -513,7 +536,7 @@ export default function QuickViewModal({ product, onClose }) {
               </div>
 
               {/* Price Row */}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
                 <span style={{ fontSize: '26px', fontWeight: 900, color: '#0F172A', letterSpacing: '-0.5px' }}>
                   ₹{priceNum.toFixed(0)}
                 </span>
@@ -522,10 +545,24 @@ export default function QuickViewModal({ product, onClose }) {
                     ₹{origPriceNum.toFixed(0)}
                   </span>
                 )}
-                {(discount_tag || discount) && (
-                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#388E3C' }}>
-                    {discount_tag || `-${discount}% off`}
-                  </span>
+                {discount && (
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    background: '#C23A0B',
+                    color: '#FFFFFF',
+                    display: 'inline-flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    lineHeight: '1.05',
+                    boxShadow: '0 2px 6px rgba(194, 58, 11, 0.35)',
+                    flexShrink: 0
+                  }}>
+                    <span style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '-0.2px' }}>{discount}%</span>
+                    <span style={{ fontSize: '8.5px', fontWeight: 800, textTransform: 'lowercase' }}>off</span>
+                  </div>
                 )}
                 {currentStock !== null && (
                   <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 800, color: isOutOfStock ? '#EF4444' : currentStock < 10 ? '#D97706' : '#059669', background: isOutOfStock ? '#FEE2E2' : currentStock < 10 ? '#FEF3C7' : '#DCFCE7', padding: '2px 8px', borderRadius: '6px' }}>

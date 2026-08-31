@@ -173,20 +173,14 @@ const MiniCard = memo(function MiniCardComponent({ product, badge: customBadge }
   if (customBadge && typeof customBadge === 'object') {
     badge = customBadge;
   } else if (typeof customBadge === 'string' && customBadge.trim()) {
-    const badgeKey = customBadge.toLowerCase().replace(/[^a-z]/g, '');
-    const badgeConfig = {
-      sale:       { bg: 'linear-gradient(135deg, #FF3B30, #FF6B8B)', color: '#fff', label: 'SALE'       },
-      bestseller: { bg: 'linear-gradient(135deg, #FF9500, #FFCC00)', color: '#fff', label: 'BESTSELLER' },
-      new:        { bg: 'linear-gradient(135deg, #30D158, #34C759)', color: '#fff', label: 'NEW'        },
-      hot:        { bg: 'linear-gradient(135deg, #AF52DE, #5856D6)', color: '#fff', label: 'HOT'        }
-    };
-    badge = badgeConfig[badgeKey] || { bg: 'linear-gradient(135deg, #1A1A2E, #0F3460)', color: '#fff', label: customBadge };
+    badge = { bg: '#6318EB', color: '#fff', label: customBadge };
   } else if (parsedBadge) {
-    badge = { bg: 'linear-gradient(135deg, #1A1A2E, #0F3460)', color: '#fff', label: parsedBadge };
+    badge = { bg: '#6318EB', color: '#fff', label: parsedBadge };
   }
 
   const pPrice = Number(product.price || 0);
   const pOrig = Number(product.original_price || 0);
+  const discount = pOrig > pPrice && pOrig > 0 ? Math.round(((pOrig - pPrice) / pOrig) * 100) : null;
   const imgUrl = getProductImage(product);
 
   return (
@@ -221,14 +215,34 @@ const MiniCard = memo(function MiniCardComponent({ product, badge: customBadge }
             style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'18px'}}
             onError={e=>{e.target.src='https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80';}}
           />
-          {/* Badge tag on home page cards only */}
+          {/* Circular Rust-Red Discount Badge (like img1) */}
+          {discount && (
+            <div style={{
+              position: 'absolute', top: '8px', left: '8px',
+              width: '36px', height: '36px', borderRadius: '50%',
+              background: '#C23A0B', color: '#FFFFFF',
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              lineHeight: '1.05', boxShadow: '0 2px 8px rgba(194, 58, 11, 0.35)',
+              zIndex: 2, pointerEvents: 'none'
+            }}>
+              <span style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '-0.2px' }}>{discount}%</span>
+              <span style={{ fontSize: '8.5px', fontWeight: 800, textTransform: 'lowercase' }}>off</span>
+            </div>
+          )}
+
+          {/* Badge tag on home page cards (like img3 in vibrant purple) */}
           {badge && (
-            <div style={{position:'absolute',top:'8px',left:'8px',background:badge.bg,
-              color:badge.color,fontSize:'9px',fontWeight:800,padding:'3px 9px',
-              borderRadius:'9999px',display:'flex',alignItems:'center',gap:'3px',
-              boxShadow:'0 2px 8px rgba(0,0,0,.08)',border:'1px solid rgba(255,255,255,.6)',
-              maxWidth:'75%', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
-              {badge.label}
+            <div style={{
+              position:'absolute', top:'8px', left: discount ? '48px' : '8px',
+              background: '#6318EB', color: '#FFFFFF',
+              fontSize:'8.5px', fontWeight:800, padding:'3px 8px',
+              borderRadius:'5px', display:'flex', alignItems:'center', gap:'3px',
+              boxShadow:'0 2px 6px rgba(99, 24, 235, 0.3)',
+              maxWidth:'60%', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+              textTransform: 'uppercase'
+            }}>
+              {badge.label || badge}
             </div>
           )}
           <button

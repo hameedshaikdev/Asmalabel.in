@@ -251,6 +251,22 @@ export default function Wishlist() {
                     />
                   </Link>
 
+                  {/* Circular Rust-Red Discount Badge (like img1) */}
+                  {disc > 0 && (
+                    <div style={{
+                      position: 'absolute', top: '8px', left: '8px',
+                      width: '36px', height: '36px', borderRadius: '50%',
+                      background: '#C23A0B', color: '#FFFFFF',
+                      display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', justifyContent: 'center',
+                      lineHeight: '1.05', boxShadow: '0 2px 8px rgba(194, 58, 11, 0.35)',
+                      zIndex: 2, pointerEvents: 'none'
+                    }}>
+                      <span style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '-0.2px' }}>{disc}%</span>
+                      <span style={{ fontSize: '8.5px', fontWeight: 800, textTransform: 'lowercase' }}>off</span>
+                    </div>
+                  )}
+
                   {/* Remove Button */}
                   <button
                     onClick={(e) => { e.preventDefault(); removeFromWishlist(product.id); }}
@@ -297,18 +313,13 @@ export default function Wishlist() {
                   )}
 
                   {/* Price Row */}
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap', marginTop: 'auto' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: 'auto' }}>
                     <span style={{ fontSize: '16px', fontWeight: 900, color: '#0F172A', whiteSpace: 'nowrap' }}>
                       ₹{price.toFixed(0)}
                     </span>
                     {orig > price && (
                       <span style={{ fontSize: '12.5px', color: '#94A3B8', textDecoration: 'line-through', fontWeight: 500, whiteSpace: 'nowrap' }}>
                         ₹{orig.toFixed(0)}
-                      </span>
-                    )}
-                    {disc > 0 && (
-                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#16A34A', background: '#DCFCE7', padding: '2px 6px', borderRadius: '6px', whiteSpace: 'nowrap' }}>
-                        {disc}% off
                       </span>
                     )}
                   </div>

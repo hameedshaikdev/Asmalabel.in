@@ -166,7 +166,7 @@ export default function ProductDetail() {
   
   // Memoize parsed tags & bundle to prevent infinite re-render loop (React Error #185)
   const parsedTags = useMemo(() => parseProductTags(product), [product]);
-  const { cleanDesc, discount_tag, colors: parsedColors, bundle, variants: parsedVariants, images: parsedImages } = parsedTags;
+  const { cleanDesc, badge: parsedBadge, discount_tag, colors: parsedColors, bundle, variants: parsedVariants, images: parsedImages } = parsedTags;
 
   const [bundleCompanions, setBundleCompanions] = useState([]);
 
@@ -785,6 +785,22 @@ export default function ProductDetail() {
                 </motion.button>
               </div>
 
+              {/* Circular Rust-Red Discount Sticker on Main Gallery Image (like img1) */}
+              {discount && (
+                <div style={{
+                  position: 'absolute', top: '12px', left: '12px',
+                  width: '42px', height: '42px', borderRadius: '50%',
+                  background: '#C23A0B', color: '#FFFFFF',
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center',
+                  lineHeight: '1.05', boxShadow: '0 3px 10px rgba(194, 58, 11, 0.4)',
+                  zIndex: 10, pointerEvents: 'none'
+                }}>
+                  <span style={{ fontSize: '12.5px', fontWeight: 900, letterSpacing: '-0.2px' }}>{discount}%</span>
+                  <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'lowercase' }}>off</span>
+                </div>
+              )}
+
               <motion.img
                 key={selImg}
                 src={currentImg}
@@ -855,6 +871,59 @@ export default function ProductDetail() {
           {/* ── DETAILS SECTION ── */}
           <div className="pd-details-section">
 
+            {/* Top Badges Row: Custom Tag (like img3 in purple), Free Delivery, Rating Pill */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '2px' }}>
+              {/* Product Badge (e.g. NEW ARRIVAL, BESTSELLER, TRENDING) — Styled exactly like img3! */}
+              {(parsedBadge || product?.badge) && (
+                <span style={{
+                  background: '#6318EB',
+                  color: '#FFFFFF',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  letterSpacing: '0.6px',
+                  padding: '4px 12px',
+                  borderRadius: '7px',
+                  textTransform: 'uppercase',
+                  boxShadow: '0 2px 8px rgba(99, 24, 235, 0.25)',
+                  display: 'inline-flex',
+                  alignItems: 'center'
+                }}>
+                  {parsedBadge || product.badge}
+                </span>
+              )}
+
+              {/* Free Delivery Tag (truck + green pill, kept as requested) */}
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: '#ECFDF5',
+                border: '1px solid #A7F3D0',
+                color: '#065F46',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: 800
+              }}>
+                <Truck size={12} /> FREE SHIPPING
+              </span>
+
+              {/* Rating Tag (star + rating, kept as requested) */}
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                background: '#FEF3C7',
+                border: '1px solid #FDE68A',
+                padding: '3px 8px',
+                borderRadius: '6px'
+              }}>
+                <span style={{ fontSize: '11.5px', fontWeight: 900, color: '#92400E' }}>4.8</span>
+                <Star size={11} fill="#F59E0B" color="#F59E0B" />
+                <span style={{ fontSize: '10px', fontWeight: 700, color: '#B45309' }}>(128)</span>
+              </div>
+            </div>
+
             {/* Product Title (Dynamically switches according to active variant) */}
             <h1 className="pd-title-heading">
               {currentTitle}
@@ -862,24 +931,35 @@ export default function ProductDetail() {
 
             {/* Price Presentation */}
             <div className="pd-price-overview-box">
-              <div className="pd-price-headline-row">
-                {discount && (
-                  <span className="pd-discount-badge-green">
-                    <ArrowDown size={14} strokeWidth={3} /> {discount}%
-                  </span>
-                )}
+              <div className="pd-price-headline-row" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span className="pd-main-price-highlight" style={{ fontSize: '26px', fontWeight: 900, color: '#0F172A' }}>
+                  ₹{priceNum.toFixed(0)}
+                </span>
                 {origPriceNum > priceNum && (
-                  <span className="pd-mrp-strikethrough">
+                  <span className="pd-mrp-strikethrough" style={{ fontSize: '15px', color: '#94A3B8', textDecoration: 'line-through' }}>
                     ₹{origPriceNum.toFixed(0)}
                   </span>
                 )}
-                <span className="pd-main-price-highlight">
-                  ₹{priceNum.toFixed(0)}
-                </span>
-                {(discount_tag || discount) && (
-                  <span className="pd-red-off-pill">
-                    {discount_tag || `${discount}% OFF`}
-                  </span>
+                {/* Circular Rust-Red Discount Badge (like img1) */}
+                {discount && (
+                  <div style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '50%',
+                    background: '#C23A0B',
+                    color: '#FFFFFF',
+                    display: 'inline-flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    lineHeight: '1.05',
+                    boxShadow: '0 2px 6px rgba(194, 58, 11, 0.35)',
+                    flexShrink: 0,
+                    marginLeft: '2px'
+                  }}>
+                    <span style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '-0.2px' }}>{discount}%</span>
+                    <span style={{ fontSize: '8.5px', fontWeight: 800, textTransform: 'lowercase' }}>off</span>
+                  </div>
                 )}
               </div>
 

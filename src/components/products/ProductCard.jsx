@@ -108,16 +108,34 @@ function ProductCardComponent({ product, onQuickView, priority = false }) {
             }}
           />
 
-          {/* Top-Left Badge (SALE, NEW, etc.) */}
+          {/* Top-Left Circular Discount Badge (like img1) */}
+          {discount && (
+            <div style={{
+              position: 'absolute', top: '7px', left: '7px',
+              width: '36px', height: '36px', borderRadius: '50%',
+              background: '#C23A0B', color: '#FFFFFF',
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              lineHeight: '1.05', boxShadow: '0 2px 8px rgba(194, 58, 11, 0.35)',
+              zIndex: 2, pointerEvents: 'none'
+            }}>
+              <span style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '-0.2px' }}>{discount}%</span>
+              <span style={{ fontSize: '8.5px', fontWeight: 800, textTransform: 'lowercase' }}>off</span>
+            </div>
+          )}
+
+          {/* Top Badge (e.g. NEW ARRIVAL, BESTSELLER - like img3 in vibrant purple) */}
           {badge && (
             <div style={{
-              position: 'absolute', top: '6px', left: '6px',
-              background: 'linear-gradient(135deg, #1A1A2E, #0F3460)', color: 'white',
-              fontSize: '8.5px', fontWeight: 800, letterSpacing: '.3px',
-              padding: '2px 7px', borderRadius: '4px',
-              boxShadow: '0 2px 6px rgba(0,0,0,.2)',
-              zIndex: 2, maxWidth: '65%', whiteSpace: 'nowrap',
-              overflow: 'hidden', textOverflow: 'ellipsis'
+              position: 'absolute', top: '7px',
+              left: discount ? '48px' : '7px',
+              background: '#6318EB', color: '#FFFFFF',
+              fontSize: '8.5px', fontWeight: 800, letterSpacing: '.4px',
+              padding: '3px 8px', borderRadius: '5px',
+              boxShadow: '0 2px 6px rgba(99, 24, 235, 0.3)',
+              zIndex: 2, maxWidth: '55%', whiteSpace: 'nowrap',
+              overflow: 'hidden', textOverflow: 'ellipsis',
+              textTransform: 'uppercase'
             }}>
               {badge}
             </div>
