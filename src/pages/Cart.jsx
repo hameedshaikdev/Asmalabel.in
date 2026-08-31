@@ -140,8 +140,8 @@ export default function Cart() {
               <div style={{ display:'flex', gap:'12px', overflowX:'auto', paddingBottom:'8px', WebkitOverflowScrolling:'touch', scrollSnapType:'x mandatory', scrollbarWidth:'none' }}>
                 {suggestedProducts.map(p => {
                   const pPrice = Number(p.price || 0);
-                  const pOrig = Number(p.original_price || Math.round(pPrice * 1.3));
-                  const pDisc = pOrig > pPrice ? Math.round((1 - pPrice / pOrig) * 100) : 20;
+                  const pOrig = Number(p.original_price || 0);
+                  const pDisc = pOrig > pPrice ? Math.round((1 - pPrice / pOrig) * 100) : 0;
 
                   return (
                     <div key={p.id} style={{
@@ -202,8 +202,8 @@ export default function Cart() {
               <div style={{ display:'flex', gap:'12px', overflowX:'auto', paddingBottom:'8px', WebkitOverflowScrolling:'touch', scrollSnapType:'x mandatory', scrollbarWidth:'none' }}>
                 {recentlyViewedProducts.map(p => {
                   const pPrice = Number(p.price || 0);
-                  const pOrig = Number(p.original_price || Math.round(pPrice * 1.25));
-                  const pDisc = pOrig > pPrice ? Math.round((1 - pPrice / pOrig) * 100) : 14;
+                  const pOrig = Number(p.original_price || 0);
+                  const pDisc = pOrig > pPrice ? Math.round((1 - pPrice / pOrig) * 100) : 0;
 
                   return (
                     <div key={p.id} style={{

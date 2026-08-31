@@ -141,16 +141,16 @@ function ProductCardComponent({ product, onQuickView, priority = false }) {
             </div>
           )}
 
-          {/* Bottom-Left Embedded Rating Pill (Flipkart style from img2) */}
+          {/* Bottom-Left Embedded Rating Pill (Solid Green Flipkart Style) */}
           <div style={{
             position: 'absolute', bottom: '6px', left: '6px',
-            background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(6px)',
-            padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(226, 232, 240, 0.9)',
+            background: '#16A34A', color: '#FFFFFF',
+            padding: '2px 6px', borderRadius: '4px',
             display: 'flex', alignItems: 'center', gap: '3px', zIndex: 2,
-            boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
+            boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
           }}>
-            <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#0F172A' }}>4.8</span>
-            <Star size={10} fill="#F59E0B" color="#F59E0B" />
+            <span style={{ fontSize: '10.5px', fontWeight: 900, color: '#FFFFFF' }}>4.8</span>
+            <Star size={9} fill="#FFFFFF" color="#FFFFFF" />
           </div>
 
           {/* Out of Stock Overlay */}

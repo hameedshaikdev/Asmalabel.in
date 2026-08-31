@@ -644,6 +644,28 @@ function ProductModal({ product, onClose, onSave }) {
   }
 
   /* ── Variant Action Handlers ── */
+  function createMainDefaultVariant(currentForm) {
+    const detectedSize = extractSizeFromName(currentForm.name || '');
+    const mainImages = Array.isArray(currentForm.images) && currentForm.images.length > 0
+      ? [...currentForm.images]
+      : (currentForm.image_url ? [currentForm.image_url] : []);
+
+    return {
+      id: `var_${Date.now()}_main`,
+      title: (currentForm.name || '').trim(),
+      description: (currentForm.description || '').trim(),
+      size: detectedSize || '',
+      color: (currentForm.colors && currentForm.colors[0]) || '',
+      color_value: (currentForm.colors && getColorSwatch(currentForm.colors[0])) || '#0F172A',
+      price: currentForm.price !== '' && currentForm.price !== null ? parseFloat(currentForm.price) : 0,
+      original_price: currentForm.original_price !== '' && currentForm.original_price !== null ? parseFloat(currentForm.original_price) : null,
+      stock: currentForm.stock !== '' && currentForm.stock !== null ? parseInt(currentForm.stock) : 100,
+      sku: '',
+      images: mainImages,
+      is_default: true,
+    };
+  }
+
   function handleSortVariantsAscending() {
     setForm(p => ({
       ...p,
@@ -653,23 +675,67 @@ function ProductModal({ product, onClose, onSave }) {
   }
 
   function handleAddVariant(initialSize = '') {
-    const newVar = {
-      id: `var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      title: '',
-      description: '',
-      size: initialSize || '',
-      color: '',
-      color_value: '#0F172A',
-      price: form.price !== '' && form.price !== null ? parseFloat(form.price) : 0,
-      original_price: form.original_price !== '' && form.original_price !== null ? parseFloat(form.original_price) : null,
-      stock: form.stock !== '' && form.stock !== null ? parseInt(form.stock) : 100,
-      sku: '',
-      images: [],
-      is_default: (form.variants || []).length === 0,
-    };
     setForm(p => {
-      const combined = [...(p.variants || []), newVar];
-      const sorted = initialSize ? sortVariantsAscending(combined) : combined;
+      let currentList = [...(p.variants || [])];
+      
+      // If no variants exist yet, automatically add the main product as the pre-filled default variant!
+      if (currentList.length === 0) {
+        const defaultVar = createMainDefaultVariant(p);
+        
+        // If initialSize is requested and doesn't match default size, add defaultVar + newVar together
+        if (initialSize && initialSize !== defaultVar.size) {
+          currentList.push(defaultVar);
+          const mainImages = Array.isArray(p.images) && p.images.length > 0
+            ? [...p.images]
+            : (p.image_url ? [p.image_url] : []);
+          const newVar = {
+            id: `var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            title: `${(p.name || '').trim()} - ${initialSize}`,
+            description: (p.description || '').trim(),
+            size: initialSize,
+            color: '',
+            color_value: '#0F172A',
+            price: p.price !== '' && p.price !== null ? parseFloat(p.price) : 0,
+            original_price: p.original_price !== '' && p.original_price !== null ? parseFloat(p.original_price) : null,
+            stock: p.stock !== '' && p.stock !== null ? parseInt(p.stock) : 100,
+            sku: '',
+            images: mainImages,
+            is_default: false,
+          };
+          currentList.push(newVar);
+        } else {
+          if (initialSize && !defaultVar.size) {
+            defaultVar.size = initialSize;
+          }
+          currentList.push(defaultVar);
+        }
+      } else {
+        // Adding an additional variant on top of existing ones
+        const mainImages = Array.isArray(p.images) && p.images.length > 0
+          ? [...p.images]
+          : (p.image_url ? [p.image_url] : []);
+        const newVar = {
+          id: `var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          title: initialSize ? `${(p.name || '').trim()} - ${initialSize}` : '',
+          description: (p.description || '').trim(),
+          size: initialSize || '',
+          color: '',
+          color_value: '#0F172A',
+          price: p.price !== '' && p.price !== null ? parseFloat(p.price) : 0,
+          original_price: p.original_price !== '' && p.original_price !== null ? parseFloat(p.original_price) : null,
+          stock: p.stock !== '' && p.stock !== null ? parseInt(p.stock) : 100,
+          sku: '',
+          images: mainImages,
+          is_default: false,
+        };
+        currentList.push(newVar);
+      }
+
+      const sorted = sortVariantsAscending(currentList);
+      if (!sorted.some(v => v.is_default)) {
+        sorted[0].is_default = true;
+      }
+
       return {
         ...p,
         variants_enabled: true,
@@ -950,8 +1016,9 @@ function ProductModal({ product, onClose, onSave }) {
 
       // Clean and Validate Variants (Supports any size format: mm, inch, XL, titles, descriptions)
       let variantsPayload = [];
-      if (form.variants_enabled && form.variants && form.variants.length > 0) {
-        const cleaned = form.variants
+      if (form.variants_enabled) {
+        const rawVariants = form.variants && form.variants.length > 0 ? form.variants : [createMainDefaultVariant(form)];
+        const cleaned = rawVariants
           .map(v => ({
             id: v.id || `var_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             title: (v.title || '').trim(),
@@ -1643,10 +1710,28 @@ function ProductModal({ product, onClose, onSave }) {
                   checked={form.variants_enabled}
                   onChange={e => {
                     const checked = e.target.checked;
-                    if (checked && (!form.variants || form.variants.length === 0)) {
-                      handleAddVariant();
+                    if (checked) {
+                      setForm(p => {
+                        const existing = p.variants || [];
+                        if (existing.length === 0) {
+                          const defaultVar = createMainDefaultVariant(p);
+                          return {
+                            ...p,
+                            variants_enabled: true,
+                            variants: [defaultVar]
+                          };
+                        }
+                        const hasDefault = existing.some(v => v.is_default);
+                        const updated = hasDefault ? existing : existing.map((v, i) => ({ ...v, is_default: i === 0 }));
+                        return {
+                          ...p,
+                          variants_enabled: true,
+                          variants: updated
+                        };
+                      });
+                      toast('✓ Main variant automatically filled as default!', 'info');
                     } else {
-                      setForm(p => ({ ...p, variants_enabled: checked }));
+                      setForm(p => ({ ...p, variants_enabled: false }));
                     }
                   }}
                   style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#30D158' }}

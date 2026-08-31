@@ -908,19 +908,20 @@ export default function ProductDetail() {
                 <Truck size={12} /> FREE SHIPPING
               </span>
 
-              {/* Rating Tag (star + rating, kept as requested) */}
+              {/* Rating Tag (Green pill as requested) */}
               <div style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '3px',
-                background: '#FEF3C7',
-                border: '1px solid #FDE68A',
+                background: '#16A34A',
+                color: '#FFFFFF',
                 padding: '3px 8px',
-                borderRadius: '6px'
+                borderRadius: '6px',
+                boxShadow: '0 2px 6px rgba(22, 163, 74, 0.25)'
               }}>
-                <span style={{ fontSize: '11.5px', fontWeight: 900, color: '#92400E' }}>4.8</span>
-                <Star size={11} fill="#F59E0B" color="#F59E0B" />
-                <span style={{ fontSize: '10px', fontWeight: 700, color: '#B45309' }}>(128)</span>
+                <span style={{ fontSize: '11.5px', fontWeight: 900, color: '#FFFFFF' }}>4.8</span>
+                <Star size={10} fill="#FFFFFF" color="#FFFFFF" />
+                <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>(128)</span>
               </div>
             </div>
 
@@ -1370,21 +1371,19 @@ export default function ProductDetail() {
 
         {/* ── BUY MORE, SAVE MORE 💎 (Configurable from Admin Panel) ── */}
         {/* ── BUY MORE, SAVE MORE 💎 (Multi-Product Configurable from Admin Panel) ── */}
-        {(bundle?.enabled !== false) && (() => {
+        {/* ── BUY MORE, SAVE MORE 💎 (Explicitly Configured Bundles Only) ── */}
+        {(bundle?.enabled === true && bundleCompanions.length > 0) && (() => {
           const discPct = bundle?.discountPct ? Number(bundle.discountPct) : 5;
           const bundleSubtitle = bundle?.subtitle || 'Collect both Asmalabel signatures and enjoy an exclusive discount ✨';
 
-          const companions = bundleCompanions.length > 0
-            ? bundleCompanions
-            : (addons.slice(0, 1).length > 0 ? addons.slice(0, 1) : (related.slice(0, 1)));
-
+          const companions = bundleCompanions;
           if (!companions || companions.length === 0) return null;
 
           const allItems = [product, ...companions];
           const totalOrig = allItems.reduce((acc, it) => {
             const price = Number(it.price || 0);
-            const orig = Number(it.original_price || Math.round(price * 1.12));
-            return acc + (orig > price ? orig : Math.round(price * 1.12));
+            const orig = Number(it.original_price || price);
+            return acc + (orig > price ? orig : price);
           }, 0);
           const totalPrice = allItems.reduce((acc, it) => acc + Number(it.price || 0), 0);
           const totalBundle = totalPrice * ((100 - discPct) / 100);
@@ -1401,7 +1400,7 @@ export default function ProductDetail() {
                 {allItems.map((item, idx) => {
                   const isMain = idx === 0;
                   const itemPrice = Number(item.price || 0);
-                  const itemOrig = Number(item.original_price || Math.round(itemPrice * 1.12));
+                  const itemOrig = Number(item.original_price || itemPrice);
                   const itemImg = isMain ? mainImage : getProductImage(item);
 
                   return (
