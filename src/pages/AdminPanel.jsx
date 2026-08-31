@@ -3216,6 +3216,7 @@ export default function AdminPanel() {
   const [tailoringSubCat, setTailoringSubCat] = useState('all');
   const [fashionSubCat,   setFashionSubCat]   = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+  const [productStatusFilter, setProductStatusFilter] = useState('all'); // 'all' | 'active' | 'hidden' | 'low_stock'
 
   // ── CUSTOM SUBCATEGORIES STATE & MODAL ──
   const [customSubcats, setCustomSubcats] = useState(() => {
@@ -4021,12 +4022,19 @@ buildPages(4);
   const allTailoringList = products.filter(p => (p.category || '').toLowerCase() === 'tailoring' || !(p.category === 'fashion'));
   const allFashionList = products.filter(p => (p.category || '').toLowerCase() === 'fashion');
 
+  const filterByStatus = (p) => {
+    if (productStatusFilter === 'active') return !!p.active;
+    if (productStatusFilter === 'hidden') return !p.active;
+    if (productStatusFilter === 'low_stock') return p.stock !== null && p.stock !== undefined && Number(p.stock) <= 10;
+    return true; // 'all'
+  };
+
   const tailoringProducts = allTailoringList.filter(p => {
     const s = search.toLowerCase().trim();
     const ms = !s || (p.name || '').toLowerCase().includes(s) || (p.sub_category || '').toLowerCase().includes(s);
     const normTab = normalizeCategoryKey(tailoringSubCat);
     const mSub = normTab === 'all' || normalizeCategoryKey(p.sub_category) === normTab || (p.sub_category || '').toLowerCase() === tailoringSubCat.toLowerCase();
-    return ms && mSub;
+    return ms && mSub && filterByStatus(p);
   });
 
   const fashionProducts = allFashionList.filter(p => {
@@ -4034,7 +4042,7 @@ buildPages(4);
     const ms = !s || (p.name || '').toLowerCase().includes(s) || (p.sub_category || '').toLowerCase().includes(s);
     const normTab = normalizeCategoryKey(fashionSubCat);
     const mSub = normTab === 'all' || normalizeCategoryKey(p.sub_category) === normTab || (p.sub_category || '').toLowerCase() === fashionSubCat.toLowerCase();
-    return ms && mSub;
+    return ms && mSub && filterByStatus(p);
   });
 
   const handleDuplicateProduct = async (p) => {
@@ -4614,25 +4622,112 @@ buildPages(4);
                 </div>
               </div>
 
-              {/* ── METRICS STRIP (Slate Theme) ── */}
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))', gap:'8px' }}>
+              {/* ── 4-ACROSS METRICS FILTER STRIP (Interactive 4-Column Layout on Mobile & Desktop) ── */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                gap: '6px',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}>
                 {(productTab === 'tailoring' ? [
-                  { label:'Total Tailoring', value:allTailoringList.length, c:'#0F172A' },
-                  { label:'Active', value:allTailoringList.filter(p=>p.active).length, c:'#059669' },
-                  { label:'Hidden', value:allTailoringList.filter(p=>!p.active).length, c:'#64748B' },
-                  { label:'Low Stock', value:allTailoringList.filter(p=>p.stock!==null&&p.stock<=5).length, c:'#D97706' },
+                  { key: 'all', label: 'Total', count: allTailoringList.length, color: '#0F172A' },
+                  { key: 'active', label: 'Active', count: allTailoringList.filter(p => p.active).length, color: '#059669' },
+                  { key: 'hidden', label: 'Hidden', count: allTailoringList.filter(p => !p.active).length, color: '#64748B' },
+                  { key: 'low_stock', label: 'Low Stock', count: allTailoringList.filter(p => p.stock !== null && p.stock !== undefined && Number(p.stock) <= 10).length, color: '#D97706' },
                 ] : [
-                  { label:'Total Fashion', value:allFashionList.length, c:'#0F172A' },
-                  { label:'Active', value:allFashionList.filter(p=>p.active).length, c:'#059669' },
-                  { label:'Hidden', value:allFashionList.filter(p=>!p.active).length, c:'#64748B' },
-                  { label:'Low Stock', value:allFashionList.filter(p=>p.stock!==null&&p.stock<=5).length, c:'#D97706' },
-                ]).map(({ label, value, c }) => (
-                  <div key={label} style={{ background:'#FFFFFF', borderRadius:'10px', padding:'9px 12px', border:'1px solid #E5E7EB' }}>
-                    <p style={{ fontSize:'10px', fontWeight:800, color:'#64748B', textTransform:'uppercase', margin:0 }}>{label}</p>
-                    <p style={{ fontSize:'18px', fontWeight:900, color: c, margin:'2px 0 0 0' }}>{value}</p>
-                  </div>
-                ))}
+                  { key: 'all', label: 'Total', count: allFashionList.length, color: '#0F172A' },
+                  { key: 'active', label: 'Active', count: allFashionList.filter(p => p.active).length, color: '#059669' },
+                  { key: 'hidden', label: 'Hidden', count: allFashionList.filter(p => !p.active).length, color: '#64748B' },
+                  { key: 'low_stock', label: 'Low Stock', count: allFashionList.filter(p => p.stock !== null && p.stock !== undefined && Number(p.stock) <= 10).length, color: '#D97706' },
+                ]).map(({ key, label, count, color }) => {
+                  const isSelected = productStatusFilter === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setProductStatusFilter(key)}
+                      style={{
+                        background: isSelected ? '#0F172A' : '#FFFFFF',
+                        borderRadius: '10px',
+                        padding: '8px 4px',
+                        border: isSelected ? '1.5px solid #0F172A' : '1px solid #E2E8F0',
+                        boxShadow: isSelected ? '0 4px 12px rgba(15, 23, 42, 0.18)' : '0 1px 3px rgba(0,0,0,0.03)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        transition: 'all 0.15s ease',
+                        outline: 'none',
+                        minWidth: 0,
+                        width: '100%',
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      <span style={{
+                        fontSize: '9.5px',
+                        fontWeight: 800,
+                        color: isSelected ? 'rgba(255, 255, 255, 0.75)' : '#64748B',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.2px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: 'block',
+                        width: '100%'
+                      }}>
+                        {label}
+                      </span>
+                      <span style={{
+                        fontSize: '16px',
+                        fontWeight: 900,
+                        color: isSelected ? '#FFFFFF' : color,
+                        margin: '2px 0 0 0',
+                        lineHeight: 1.1
+                      }}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
+
+              {/* Active Filter Pill & Clear Action */}
+              {productStatusFilter !== 'all' && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: '#F1F5F9',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  fontSize: '11.5px',
+                  color: '#334155',
+                  fontWeight: 700
+                }}>
+                  <span>
+                    Filtered by: <strong>{productStatusFilter === 'active' ? 'Active Products' : productStatusFilter === 'hidden' ? 'Hidden Products' : 'Low Stock (≤ 10)'}</strong> ({(productTab === 'tailoring' ? tailoringProducts : fashionProducts).length} items)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setProductStatusFilter('all')}
+                    style={{
+                      background: '#FFFFFF',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '4px',
+                      padding: '2px 8px',
+                      fontSize: '10.5px',
+                      fontWeight: 800,
+                      color: '#0F172A',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Clear Filter ✕
+                  </button>
+                </div>
+              )}
 
               {/* ── PRODUCTS GRID ── */}
               {loading ? (
