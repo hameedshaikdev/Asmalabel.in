@@ -368,6 +368,7 @@ div[style*="overflow"]::-webkit-scrollbar {
   width: 100% !important;
   padding: 16px 0 0;
   transition: background .4s var(--ease);
+  overflow: visible !important;
 }
 .sh-switcher-container {
   display: flex !important;
@@ -376,6 +377,7 @@ div[style*="overflow"]::-webkit-scrollbar {
   width: 100% !important;
   margin: 0 auto !important;
   padding-bottom: 24px;
+  overflow: visible !important;
 }
 @media (max-width: 640px) {
   .sh-switcher-container {
@@ -383,9 +385,11 @@ div[style*="overflow"]::-webkit-scrollbar {
     padding-left: 0 !important;
     padding-right: 0 !important;
     justify-content: center !important;
+    overflow: visible !important;
   }
   .sh-switcher {
     margin: 0 auto !important;
+    overflow: visible !important;
   }
 }
 
@@ -411,6 +415,7 @@ div[style*="overflow"]::-webkit-scrollbar {
   padding: 4px;
   gap: 2px;
   position: relative;
+  overflow: visible !important;
   background: linear-gradient(180deg, #113854 0%, #0c273b 100%) !important;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.12) !important;
@@ -447,6 +452,7 @@ div[style*="overflow"]::-webkit-scrollbar {
   z-index: 1;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   padding: 10px 22px;
   border-radius: var(--r-pill);
@@ -462,6 +468,7 @@ div[style*="overflow"]::-webkit-scrollbar {
   height: 44px;
   box-sizing: border-box;
   white-space: nowrap;
+  overflow: visible !important;
 }
 
 /* active button text */
@@ -492,6 +499,12 @@ div[style*="overflow"]::-webkit-scrollbar {
 .sh-category-icon {
   display: block;
 }
+.sh-switcher-btn:not(.active) .sh-icon-sewing-machine {
+  filter: brightness(0) invert(1);
+}
+.sh-switcher-btn.active .sh-icon-sewing-machine {
+  filter: none;
+}
 
 /* ── Realistic 3D Chained & Locked Tab Styling ── */
 .sh-switcher-btn.sh-switcher-btn-locked {
@@ -512,9 +525,9 @@ div[style*="overflow"]::-webkit-scrollbar {
 
 .sh-chained-pill-img {
   position: absolute;
-  top: -8.8px;
+  top: -6px;
   left: 0;
-  height: 73px;
+  height: 63px;
   width: auto;
   max-width: none !important;
   display: block;
@@ -620,9 +633,9 @@ div[style*="overflow"]::-webkit-scrollbar {
   }
   .sh-chained-pill-img {
     position: absolute !important;
-    top: -7.5px !important;
+    top: -5px !important;
     left: 0 !important;
-    height: 63px !important;
+    height: 54px !important;
     width: auto !important;
     max-width: none !important;
     margin: 0 !important;
@@ -3578,8 +3591,8 @@ img, video, svg {
     max-height: 35px !important;
   }
   .sh-chained-pill-img {
-    top: -7px !important;
-    height: 58px !important;
+    top: -4.5px !important;
+    height: 50px !important;
   }
   .sh-switcher-slider {
     height: 35px !important;
