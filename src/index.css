@@ -459,7 +459,7 @@ div[style*="overflow"]::-webkit-scrollbar {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 10px 22px;
+  padding: 10px 14px;
   border-radius: var(--r-pill);
   font-size: 15px;
   font-weight: 700;
@@ -471,8 +471,9 @@ div[style*="overflow"]::-webkit-scrollbar {
   color: #FFFFFF !important;
   opacity: 0.95;
   height: 44px;
-  width: 190px;
-  min-width: 190px;
+  width: 175px;
+  min-width: 175px;
+  max-width: 175px;
   box-sizing: border-box;
   white-space: nowrap;
   overflow: visible !important;
@@ -519,9 +520,9 @@ div[style*="overflow"]::-webkit-scrollbar {
   background: transparent !important;
   border: none !important;
   height: 44px !important;
-  width: 235px !important;
-  min-width: 235px !important;
-  max-width: 235px !important;
+  width: 175px !important;
+  min-width: 175px !important;
+  max-width: 175px !important;
   display: block !important;
   position: relative !important;
   cursor: pointer;
@@ -532,13 +533,12 @@ div[style*="overflow"]::-webkit-scrollbar {
 
 .sh-chained-pill-img {
   position: absolute;
-  top: -10px;
+  top: -11.5px;
   left: 0;
-  width: 235px !important;
-  height: 70px !important;
+  width: 175px !important;
+  height: 67px !important;
   max-width: none !important;
   display: block;
-  object-fit: contain;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
   pointer-events: none;
   user-select: none;
@@ -616,14 +616,14 @@ div[style*="overflow"]::-webkit-scrollbar {
     border-radius: 9999px !important;
   }
   .sh-switcher-btn {
-    padding: 6px 10px !important;
-    font-size: 13px !important;
+    padding: 6px 8px !important;
+    font-size: 12.5px !important;
     height: 38px !important;
     min-height: 38px !important;
     max-height: 38px !important;
-    width: 140px !important;
-    min-width: 140px !important;
-    max-width: 140px !important;
+    width: 148px !important;
+    min-width: 148px !important;
+    max-width: 148px !important;
     gap: 5px !important;
     box-sizing: border-box !important;
     border-radius: 9999px !important;
@@ -633,9 +633,9 @@ div[style*="overflow"]::-webkit-scrollbar {
     height: 38px !important;
     min-height: 38px !important;
     max-height: 38px !important;
-    width: 185px !important;
-    min-width: 185px !important;
-    max-width: 185px !important;
+    width: 148px !important;
+    min-width: 148px !important;
+    max-width: 148px !important;
     padding: 0 !important;
     position: relative !important;
     overflow: visible !important;
@@ -644,15 +644,14 @@ div[style*="overflow"]::-webkit-scrollbar {
   }
   .sh-chained-pill-img {
     position: absolute !important;
-    top: -8px !important;
+    top: -9.5px !important;
     left: 0 !important;
-    width: 185px !important;
-    height: 58px !important;
+    width: 148px !important;
+    height: 57px !important;
     max-width: none !important;
     margin: 0 !important;
     pointer-events: none !important;
     user-select: none !important;
-    object-fit: contain !important;
   }
   .sh-lock-minimal-unit {
     gap: 3px;

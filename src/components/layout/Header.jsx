@@ -356,15 +356,15 @@ export default function Header() {
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              paddingBottom: '20px',
-              marginBottom: '6px',
+              paddingBottom: '24px',
+              marginBottom: '16px',
             }}>
             <div className="sh-switcher-container" style={{
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
               width: '100%',
-              maxWidth: '520px',
+              maxWidth: '480px',
               margin: '0 auto',
             }}>
               <SwitcherPills
