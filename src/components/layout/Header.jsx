@@ -5,14 +5,14 @@ import { Search, ShoppingCart, User, LogOut, Shield, Menu, X, ChevronRight, Hear
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../config/supabase';
 import { WhatsAppIcon } from '../common/UpiIcons';
-import { SewingMachineIcon, FrockIcon, ChainedLock3D } from '../common/CategoryIcons';
+import { TailoringNeedleIcon, FrockIcon, ChainedLock3D } from '../common/CategoryIcons';
 import ComingSoonModal from '../common/ComingSoonModal';
 
 const TAILORING_BG = '#9C80AA';
 const FASHION_BG   = 'linear-gradient(180deg,#B8D4F0 0%,#DCEEFF 100%)';
 
 const CATS = [
-  { id:'tailoring', label:'Tailoring Tools', icon: SewingMachineIcon },
+  { id:'tailoring', label:'Tailoring Tools', icon: TailoringNeedleIcon },
   { id:'fashion',   label:"Women's Fashion",  icon: FrockIcon },
 ];
 

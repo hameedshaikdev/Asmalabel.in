@@ -46,9 +46,33 @@ export function FrockIcon({ size = 22, className = '', ...props }) {
   );
 }
 
-export function TailoringNeedleIcon({ size = 20, className = '', ...props }) {
+export function TailoringNeedleIcon({ size = 20, color = '#0284C7', className = '', ...props }) {
   return (
-    <SewingMachineIcon size={size} className={className} {...props} />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className={`sh-category-icon ${className}`}
+      {...props}
+    >
+      <path
+        d="M17 7 C14 3.5, 9.5 5, 11.5 8.5 C13 11.5, 18 14, 15.5 17.5 C13.5 20, 10.5 19, 11.5 16.5"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <line
+        x1="18.5"
+        y1="5.5"
+        x2="5"
+        y2="19"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 

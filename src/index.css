@@ -488,31 +488,32 @@ div[style*="overflow"]::-webkit-scrollbar {
   padding: 0 !important;
   background: transparent !important;
   border: none !important;
-  height: 44px;
-  min-width: 175px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  height: 44px !important;
+  width: 184px !important;
+  min-width: 184px !important;
+  display: block !important;
+  position: relative !important;
   cursor: pointer;
   overflow: visible !important;
-  position: relative;
   z-index: 2;
+  flex-shrink: 0 !important;
 }
 
 .sh-chained-pill-img {
-  height: 68px;
+  position: absolute;
+  top: -1px;
+  left: 0;
+  height: 70px;
   width: auto;
+  max-width: none !important;
   display: block;
-  margin-top: -3px;
-  margin-bottom: -5px;
-  margin-right: -10px;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
   pointer-events: none;
   user-select: none;
 }
 
 .sh-switcher-btn.sh-switcher-btn-locked:hover .sh-chained-pill-img {
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
 }
 
 .sh-switcher-btn.sh-switcher-btn-locked:active .sh-chained-pill-img {
@@ -562,14 +563,15 @@ div[style*="overflow"]::-webkit-scrollbar {
   }
   .sh-switcher-btn.sh-switcher-btn-locked {
     height: 38px !important;
-    min-width: 135px !important;
+    width: 158px !important;
+    min-width: 158px !important;
     overflow: visible !important;
   }
   .sh-chained-pill-img {
-    height: 52px !important;
-    margin-top: -2px !important;
-    margin-bottom: -4px !important;
-    margin-right: -4px !important;
+    top: -1px !important;
+    left: 0 !important;
+    height: 60px !important;
+    margin: 0 !important;
   }
   .sh-lock-minimal-unit {
     gap: 3px;
@@ -3543,13 +3545,15 @@ img, video, svg {
     gap: 4px !important;
   }
   .sh-switcher-btn.sh-switcher-btn-locked {
-    min-width: 125px !important;
+    height: 34px !important;
+    width: 142px !important;
+    min-width: 142px !important;
   }
   .sh-chained-pill-img {
-    height: 48px !important;
-    margin-top: -2px !important;
-    margin-bottom: -3px !important;
-    margin-right: -3px !important;
+    top: -1px !important;
+    left: 0 !important;
+    height: 54px !important;
+    margin: 0 !important;
   }
 }
 @media (max-width: 340px) {
