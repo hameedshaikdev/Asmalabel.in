@@ -24,18 +24,47 @@ function SwitcherPills({ activeCategory, setActiveCategory, isWomenSectionLocked
   const btnRefs      = [btn0Ref, btn1Ref];
   const [slider, setSlider] = useState({ left:5, width:100 });
 
-  // Recalculate slider position whenever active changes or on mount or lock state changes
+  // Recalculate slider position whenever active changes, fonts load, or size changes
   useEffect(() => {
-    const idx = CATS.findIndex(c => c.id === activeCategory);
-    const btn = btnRefs[idx]?.current;
-    const wrap = containerRef.current;
-    if (!btn || !wrap) return;
-    const wRect = wrap.getBoundingClientRect();
-    const bRect = btn.getBoundingClientRect();
-    setSlider({
-      left:  bRect.left - wRect.left,
-      width: bRect.width,
-    });
+    const updateSlider = () => {
+      const idx = CATS.findIndex(c => c.id === activeCategory);
+      const btn = btnRefs[idx]?.current;
+      const wrap = containerRef.current;
+      if (!btn || !wrap) return;
+      const wRect = wrap.getBoundingClientRect();
+      const bRect = btn.getBoundingClientRect();
+      if (bRect.width > 0) {
+        setSlider({
+          left:  bRect.left - wRect.left,
+          width: bRect.width,
+        });
+      }
+    };
+
+    updateSlider();
+
+    let ro;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => {
+        updateSlider();
+      });
+      if (containerRef.current) ro.observe(containerRef.current);
+      if (btn0Ref.current) ro.observe(btn0Ref.current);
+      if (btn1Ref.current) ro.observe(btn1Ref.current);
+    }
+
+    window.addEventListener('resize', updateSlider);
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(updateSlider);
+    }
+
+    const t = setTimeout(updateSlider, 200);
+
+    return () => {
+      clearTimeout(t);
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', updateSlider);
+    };
   }, [activeCategory, isWomenSectionLocked]);
 
   const handleTabClick = (catId) => {
@@ -321,8 +350,21 @@ export default function Header() {
         {/* ── Category Switcher (home only) ── */}
         {isHome && (
           <div className="sh-switcher-wrap"
-            style={{ background: activeCategory === 'tailoring' ? TAILORING_BG : FASHION_BG }}>
-            <div className="sh-container sh-switcher-container">
+            style={{
+              background: activeCategory === 'tailoring' ? TAILORING_BG : FASHION_BG,
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+            <div className="sh-switcher-container" style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              width: '100%',
+              maxWidth: '480px',
+              margin: '0 auto',
+            }}>
               <SwitcherPills
                 activeCategory={activeCategory}
                 setActiveCategory={setActiveCategory}
