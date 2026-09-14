@@ -356,8 +356,8 @@ export default function Header() {
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              paddingBottom: '24px',
-              marginBottom: '16px',
+              paddingBottom: '28px',
+              marginBottom: '20px',
             }}>
             <div className="sh-switcher-container" style={{
               display: 'flex',

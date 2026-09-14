@@ -459,7 +459,7 @@ div[style*="overflow"]::-webkit-scrollbar {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 10px 22px;
   border-radius: var(--r-pill);
   font-size: 15px;
   font-weight: 700;
@@ -471,9 +471,9 @@ div[style*="overflow"]::-webkit-scrollbar {
   color: #FFFFFF !important;
   opacity: 0.95;
   height: 44px;
-  width: 175px;
-  min-width: 175px;
-  max-width: 175px;
+  width: 190px;
+  min-width: 190px;
+  max-width: 190px;
   box-sizing: border-box;
   white-space: nowrap;
   overflow: visible !important;
@@ -520,9 +520,9 @@ div[style*="overflow"]::-webkit-scrollbar {
   background: transparent !important;
   border: none !important;
   height: 44px !important;
-  width: 175px !important;
-  min-width: 175px !important;
-  max-width: 175px !important;
+  width: 202px !important;
+  min-width: 202px !important;
+  max-width: 202px !important;
   display: block !important;
   position: relative !important;
   cursor: pointer;
@@ -533,10 +533,10 @@ div[style*="overflow"]::-webkit-scrollbar {
 
 .sh-chained-pill-img {
   position: absolute;
-  top: -11.5px;
+  top: -6px;
   left: 0;
-  width: 175px !important;
-  height: 67px !important;
+  width: 202px !important;
+  height: 77px !important;
   max-width: none !important;
   display: block;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
