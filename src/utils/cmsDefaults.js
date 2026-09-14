@@ -194,6 +194,7 @@ export const DEFAULT_CMS_DATA = {
   },
 
   mediaLibrary: [],
+  isWomenLocked: true,
 };
 
 export const normalizeCategoryKey = (str) => {

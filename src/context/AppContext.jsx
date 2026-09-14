@@ -198,7 +198,7 @@ export function AppProvider({ children }) {
       footer: { ...DEFAULT_CMS_DATA.footer, ...(data.footer || {}) },
       seo: seoData,
       mediaLibrary: mediaLib,
-      isWomenLocked: typeof data.isWomenLocked === 'boolean' ? data.isWomenLocked : false
+      isWomenLocked: typeof data.isWomenLocked === 'boolean' ? data.isWomenLocked : true
     };
 
     return updated;
@@ -291,12 +291,14 @@ export function AppProvider({ children }) {
           const clean = getSanitizedCms(data.content);
           setCmsData(clean);
           localStorage.setItem('ashub_homepage_cms', JSON.stringify(clean));
-          if (typeof clean.isWomenLocked === 'boolean') {
-            setIsWomenSectionLockedState(clean.isWomenLocked);
-            localStorage.setItem('asmalabel_women_locked', clean.isWomenLocked ? 'true' : 'false');
-            if (clean.isWomenLocked && activeCategory === 'fashion') {
-              setActiveCategory('tailoring');
-            }
+          const localStored = localStorage.getItem('asmalabel_women_locked');
+          const isLocked = localStored !== null ? localStored === 'true' : true;
+          setIsWomenSectionLockedState(isLocked);
+          if (localStored === null) {
+            localStorage.setItem('asmalabel_women_locked', 'true');
+          }
+          if (isLocked && activeCategory === 'fashion') {
+            setActiveCategory('tailoring');
           }
         }
       } catch { /* use local */ }
