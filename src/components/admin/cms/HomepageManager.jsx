@@ -6,7 +6,7 @@ import {
   Lock, Unlock
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
-import { SewingMachineIcon, FrockIcon } from '../../common/CategoryIcons';
+import { TailoringNeedleIcon, FrockIcon } from '../../common/CategoryIcons';
 import HeroEditor from './HeroEditor';
 import AnnouncementBarEditor from './AnnouncementBarEditor';
 import TrustBadgesEditor from './TrustBadgesEditor';
@@ -155,135 +155,201 @@ export default function HomepageManager({ products = [] }) {
           background: '#FFFFFF',
           border: '1px solid #E2E8F0',
           borderRadius: '16px',
-          padding: '16px 18px',
+          padding: '16px',
           boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '12px'
+          gap: '14px',
+          overflow: 'hidden'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '40px', height: '40px', borderRadius: '12px',
-              background: isWomenSectionLocked ? 'linear-gradient(135deg, #EF4444, #B91C1C)' : 'linear-gradient(135deg, #10B981, #059669)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF',
-              boxShadow: isWomenSectionLocked ? '0 4px 12px rgba(239, 68, 68, 0.3)' : '0 4px 12px rgba(16, 185, 129, 0.3)'
-            }}>
-              {isWomenSectionLocked ? <Lock size={20} /> : <Unlock size={20} />}
-            </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: 900, color: '#0F172A', margin: 0 }}>
-                  Storefront Section Access &amp; Lock Controls
-                </h3>
-                <span style={{
-                  fontSize: '10px', fontWeight: 900, padding: '3px 9px', borderRadius: '99px',
+        {/* Top Header Row with Icon and Title */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', width: '100%' }}>
+          <div
+            style={{
+              width: '42px',
+              height: '42px',
+              minWidth: '42px',
+              maxWidth: '42px',
+              flexShrink: 0,
+              borderRadius: '12px',
+              background: isWomenSectionLocked
+                ? 'linear-gradient(135deg, #EF4444, #B91C1C)'
+                : 'linear-gradient(135deg, #10B981, #059669)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#FFFFFF',
+              boxShadow: isWomenSectionLocked
+                ? '0 4px 12px rgba(239, 68, 68, 0.3)'
+                : '0 4px 12px rgba(16, 185, 129, 0.3)',
+              marginTop: '1px'
+            }}
+          >
+            {isWomenSectionLocked ? <Lock size={20} /> : <Unlock size={20} />}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 900, color: '#0F172A', margin: 0, lineHeight: 1.3 }}>
+                Storefront Section Access &amp; Lock Controls
+              </h3>
+              <span
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 900,
+                  padding: '3px 8px',
+                  borderRadius: '99px',
                   background: isWomenSectionLocked ? '#FEF2F2' : '#F0FDF4',
                   color: isWomenSectionLocked ? '#DC2626' : '#16A34A',
                   border: isWomenSectionLocked ? '1px solid #FECACA' : '1px solid #BBF7D0',
-                  letterSpacing: '0.4px'
-                }}>
-                  {isWomenSectionLocked ? '🔒 WOMEN SECTION LOCKED (CHAINED)' : '✓ WOMEN SECTION UNLOCKED (LIVE)'}
-                </span>
-              </div>
-              <p style={{ fontSize: '12px', color: '#64748B', margin: '3px 0 0 0' }}>
-                When locked, the Women's Fashion tab on the homepage is chained with a padlock and shows a luxury Coming Soon announcement modal upon click.
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 800, color: isWomenSectionLocked ? '#DC2626' : '#475569' }}>
-              {isWomenSectionLocked ? 'Locked (Chained)' : 'Unlocked (Live)'}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                const next = !isWomenSectionLocked;
-                setWomenSectionLocked(next);
-                toast(next ? "Women's Fashion section is now LOCKED (Chained on homepage)" : "Women's Fashion section is now UNLOCKED (Live for shoppers)", next ? 'warning' : 'success');
-              }}
-              style={{
-                width: '58px',
-                height: '32px',
-                borderRadius: '999px',
-                background: isWomenSectionLocked ? '#DC2626' : '#E2E8F0',
-                border: 'none',
-                cursor: 'pointer',
-                position: 'relative',
-                padding: '3px',
-                transition: 'background 200ms ease',
-                display: 'flex',
-                alignItems: 'center'
-              }}
-              title={isWomenSectionLocked ? "Click to Unlock Women's Fashion" : "Click to Lock Women's Fashion"}
-            >
-              <div
-                style={{
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '50%',
-                  background: '#FFFFFF',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-                  transform: isWomenSectionLocked ? 'translateX(26px)' : 'translateX(0px)',
-                  transition: 'transform 200ms ease',
-                  display: 'flex',
+                  letterSpacing: '0.3px',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  gap: '3px',
+                  whiteSpace: 'nowrap'
                 }}
               >
-                {isWomenSectionLocked ? <Lock size={13} color="#DC2626" /> : <Unlock size={13} color="#64748B" />}
-              </div>
-            </button>
+                {isWomenSectionLocked ? '🔒 LOCKED (CHAINED)' : '✓ LIVE (UNLOCKED)'}
+              </span>
+            </div>
+            <p style={{ fontSize: '12px', color: '#64748B', margin: 0, lineHeight: 1.5 }}>
+              When locked, the Women's Fashion tab on the homepage is chained with a padlock and shows a luxury Coming Soon announcement modal upon click.
+            </p>
           </div>
         </div>
 
+        {/* Status & Toggle Bar */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: isWomenSectionLocked ? '#FEF2F2' : '#F8FAFC',
+            border: isWomenSectionLocked ? '1px solid #FECACA' : '1px solid #E2E8F0',
+            borderRadius: '12px',
+            padding: '10px 14px',
+            gap: '12px'
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <span
+              style={{
+                fontSize: '12.5px',
+                fontWeight: 800,
+                color: isWomenSectionLocked ? '#B91C1C' : '#334155',
+                display: 'block',
+                lineHeight: 1.3
+              }}
+            >
+              {isWomenSectionLocked ? "Women's Fashion: Locked" : "Women's Fashion: Active & Live"}
+            </span>
+            <small style={{ fontSize: '11px', color: isWomenSectionLocked ? '#EF4444' : '#64748B', display: 'block' }}>
+              {isWomenSectionLocked ? 'Shoppers see 3D chains and coming soon modal' : 'Shoppers can browse and purchase items'}
+            </small>
+          </div>
+
+          {/* Toggle Switch */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = !isWomenSectionLocked;
+              setWomenSectionLocked(next);
+              toast(
+                next
+                  ? "Women's Fashion section is now LOCKED (Chained on homepage)"
+                  : "Women's Fashion section is now UNLOCKED (Live for shoppers)",
+                next ? 'warning' : 'success'
+              );
+            }}
+            style={{
+              width: '56px',
+              height: '32px',
+              minWidth: '56px',
+              borderRadius: '999px',
+              background: isWomenSectionLocked ? '#DC2626' : '#CBD5E1',
+              border: 'none',
+              cursor: 'pointer',
+              position: 'relative',
+              padding: '3px',
+              transition: 'background 200ms ease',
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0
+            }}
+            title={isWomenSectionLocked ? "Click to Unlock Women's Fashion" : "Click to Lock Women's Fashion"}
+            aria-label={isWomenSectionLocked ? "Unlock Women's Fashion Section" : "Lock Women's Fashion Section"}
+          >
+            <div
+              style={{
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
+                background: '#FFFFFF',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                transform: isWomenSectionLocked ? 'translateX(24px)' : 'translateX(0px)',
+                transition: 'transform 200ms ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {isWomenSectionLocked ? <Lock size={13} color="#DC2626" /> : <Unlock size={13} color="#64748B" />}
+            </div>
+          </button>
+        </div>
+
         {/* Realistic Live Storefront Switcher Preview */}
-        <div style={{
-          background: '#F8FAFC',
-          borderRadius: '12px',
-          padding: '12px 14px',
-          border: '1px solid #E2E8F0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '10px'
-        }}>
+        <div
+          style={{
+            background: '#F8FAFC',
+            borderRadius: '12px',
+            padding: '12px 14px',
+            border: '1px solid #E2E8F0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}
+        >
           <div>
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block' }}>
               Storefront Switcher Live Preview
             </span>
             <span style={{ fontSize: '11px', color: '#64748B' }}>
-              {isWomenSectionLocked ? "Real luxury 3D chained pill with padlock active on homepage" : "Active tabs with custom sewing machine & teal dress icons"}
+              {isWomenSectionLocked ? "Real luxury 3D chained pill active on store" : "Active tabs with needle and frock icons"}
             </span>
           </div>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            background: 'linear-gradient(180deg, #113854 0%, #0c273b 100%)',
-            padding: '3px 4px',
-            borderRadius: '999px',
-            border: '1px solid rgba(255,255,255,0.18)',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-            maxWidth: '100%',
-            overflow: 'visible'
-          }}>
-            <div style={{
-              padding: '6px 12px',
-              borderRadius: '999px',
-              background: '#FFFFFF',
-              color: '#0F172A',
-              fontSize: '11px',
-              fontWeight: 800,
-              display: 'flex',
+          <div
+            style={{
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
-            }}>
-              <SewingMachineIcon size={14} /> Tailoring Tools
+              gap: '4px',
+              background: 'linear-gradient(180deg, #113854 0%, #0c273b 100%)',
+              padding: '3px 4px',
+              borderRadius: '999px',
+              border: '1px solid rgba(255,255,255,0.18)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+              maxWidth: '100%',
+              overflow: 'visible'
+            }}
+          >
+            <div
+              style={{
+                padding: '6px 12px',
+                borderRadius: '999px',
+                background: '#FFFFFF',
+                color: '#0F172A',
+                fontSize: '11px',
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+              }}
+            >
+              <TailoringNeedleIcon size={14} color="#0284C7" /> Tailoring Tools
             </div>
             {isWomenSectionLocked ? (
               <div style={{ display: 'flex', alignItems: 'center', padding: '0 4px', height: '28px' }}>
@@ -294,17 +360,19 @@ export default function HomepageManager({ products = [] }) {
                 />
               </div>
             ) : (
-              <div style={{
-                padding: '6px 12px',
-                borderRadius: '999px',
-                background: 'rgba(255,255,255,0.15)',
-                color: '#FFFFFF',
-                fontSize: '11px',
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}>
+              <div
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '999px',
+                  background: 'rgba(255,255,255,0.15)',
+                  color: '#FFFFFF',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
                 <FrockIcon size={14} /> Women's Fashion
               </div>
             )}
