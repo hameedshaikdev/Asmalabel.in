@@ -197,7 +197,8 @@ export function AppProvider({ children }) {
       banners: Array.isArray(data.banners) ? data.banners : DEFAULT_CMS_DATA.banners,
       footer: { ...DEFAULT_CMS_DATA.footer, ...(data.footer || {}) },
       seo: seoData,
-      mediaLibrary: mediaLib
+      mediaLibrary: mediaLib,
+      isWomenLocked: typeof data.isWomenLocked === 'boolean' ? data.isWomenLocked : false
     };
 
     return updated;
@@ -220,6 +221,67 @@ export function AppProvider({ children }) {
   const [cmsHistory, setCmsHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
+  // ── Women Section Lock State ──
+  const [isWomenSectionLocked, setIsWomenSectionLockedState] = useState(() => {
+    try {
+      const stored = localStorage.getItem('asmalabel_women_locked');
+      if (stored !== null) return stored === 'true';
+      const cms = localStorage.getItem('ashub_homepage_cms');
+      if (cms) {
+        const parsed = JSON.parse(cms);
+        if (typeof parsed.isWomenLocked === 'boolean') return parsed.isWomenLocked;
+      }
+    } catch { /* ignore */ }
+    return true;
+  });
+
+  const setWomenSectionLocked = async (locked) => {
+    const isLocked = Boolean(locked);
+    setIsWomenSectionLockedState(isLocked);
+    try {
+      localStorage.setItem('asmalabel_women_locked', isLocked ? 'true' : 'false');
+      window.dispatchEvent(new CustomEvent('women_lock_changed', { detail: { locked: isLocked } }));
+    } catch (e) {
+      console.error(e);
+    }
+
+    updateCmsDraft(draft => ({ ...draft, isWomenLocked: isLocked }));
+    setCmsData(prev => ({ ...prev, isWomenLocked: isLocked }));
+
+    try {
+      const currentCms = JSON.parse(localStorage.getItem('ashub_homepage_cms') || '{}');
+      currentCms.isWomenLocked = isLocked;
+      localStorage.setItem('ashub_homepage_cms', JSON.stringify(currentCms));
+      await supabase.from('homepage_cms').upsert({
+        id: 'published',
+        content: currentCms,
+        updated_at: new Date().toISOString()
+      });
+    } catch (err) {
+      /* local fallback active */
+    }
+
+    if (isLocked && activeCategory === 'fashion') {
+      setActiveCategory('tailoring');
+    }
+  };
+
+  useEffect(() => {
+    const handleLockEvent = (e) => {
+      const locked = e.detail?.locked ?? (localStorage.getItem('asmalabel_women_locked') === 'true');
+      setIsWomenSectionLockedState(locked);
+      if (locked && activeCategory === 'fashion') {
+        setActiveCategory('tailoring');
+      }
+    };
+    window.addEventListener('women_lock_changed', handleLockEvent);
+    window.addEventListener('storage', handleLockEvent);
+    return () => {
+      window.removeEventListener('women_lock_changed', handleLockEvent);
+      window.removeEventListener('storage', handleLockEvent);
+    };
+  }, [activeCategory]);
+
   // Sync CMS from Supabase if available
   useEffect(() => {
     async function loadRemoteCms() {
@@ -229,11 +291,18 @@ export function AppProvider({ children }) {
           const clean = getSanitizedCms(data.content);
           setCmsData(clean);
           localStorage.setItem('ashub_homepage_cms', JSON.stringify(clean));
+          if (typeof clean.isWomenLocked === 'boolean') {
+            setIsWomenSectionLockedState(clean.isWomenLocked);
+            localStorage.setItem('asmalabel_women_locked', clean.isWomenLocked ? 'true' : 'false');
+            if (clean.isWomenLocked && activeCategory === 'fashion') {
+              setActiveCategory('tailoring');
+            }
+          }
         }
       } catch { /* use local */ }
     }
     loadRemoteCms();
-  }, []);
+  }, [activeCategory]);
 
   const updateCmsDraft = (updater) => {
     setCmsDraft(prev => {
@@ -279,6 +348,7 @@ export function AppProvider({ children }) {
 
   const value = {
     activeCategory, setActiveCategory,
+    isWomenSectionLocked, setWomenSectionLocked,
     cart, addToCart, removeFromCart, updateCartQuantity, clearCart, getCartTotal, getCartCount,
     MIN_ORDER_VALUE, SHIPPING_FEE, isMinOrderMet, getMinOrderDeficit,
     wishlist, addToWishlist, removeFromWishlist, isInWishlist,

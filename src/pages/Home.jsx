@@ -751,7 +751,7 @@ function CollectionCard({ cls='', label, title, count, img, onClick, dark=false 
 
 /* ─── Main Home Component ─────────────────────────────────── */
 export default function Home() {
-  const { activeCategory, setActiveCategory, cmsData, cmsDraft, addToCart } = useApp();
+  const { activeCategory, setActiveCategory, isWomenSectionLocked, cmsData, cmsDraft, addToCart } = useApp();
   const [searchParams]          = useSearchParams();
   const searchQuery              = searchParams.get('q') || '';
   const isPreviewMode            = searchParams.get('preview') === 'draft';
@@ -770,6 +770,12 @@ export default function Home() {
   const filterRef   = useRef(null);
 
   const [isMobileMarqueeActive, setIsMobileMarqueeActive] = useState(false);
+
+  useEffect(() => {
+    if (isWomenSectionLocked && activeCategory === 'fashion') {
+      setActiveCategory('tailoring');
+    }
+  }, [isWomenSectionLocked, activeCategory, setActiveCategory]);
 
   useEffect(() => {
     setIsMobileMarqueeActive(false);

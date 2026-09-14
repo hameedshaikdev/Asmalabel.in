@@ -5,24 +5,26 @@ import { Search, ShoppingCart, User, LogOut, Shield, Menu, X, ChevronRight, Hear
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../config/supabase';
 import { WhatsAppIcon } from '../common/UpiIcons';
+import { SewingMachineIcon, FrockIcon, ChainedLock3D } from '../common/CategoryIcons';
+import ComingSoonModal from '../common/ComingSoonModal';
 
 const TAILORING_BG = '#9C80AA';
 const FASHION_BG   = 'linear-gradient(180deg,#B8D4F0 0%,#DCEEFF 100%)';
 
 const CATS = [
-  { id:'tailoring', label:'Tailoring Tools', emoji:'🪡' },
-  { id:'fashion',   label:"Women's Fashion", emoji:'👗' },
+  { id:'tailoring', label:'Tailoring Tools', icon: SewingMachineIcon },
+  { id:'fashion',   label:"Women's Fashion",  icon: FrockIcon },
 ];
 
 /* ── Sliding switcher ── */
-function SwitcherPills({ activeCategory, setActiveCategory }) {
+function SwitcherPills({ activeCategory, setActiveCategory, isWomenSectionLocked, onLockedClick }) {
   const containerRef = useRef(null);
   const btn0Ref      = useRef(null);
   const btn1Ref      = useRef(null);
   const btnRefs      = [btn0Ref, btn1Ref];
   const [slider, setSlider] = useState({ left:5, width:100 });
 
-  // Recalculate slider position whenever active changes or on mount
+  // Recalculate slider position whenever active changes or on mount or lock state changes
   useEffect(() => {
     const idx = CATS.findIndex(c => c.id === activeCategory);
     const btn = btnRefs[idx]?.current;
@@ -34,23 +36,56 @@ function SwitcherPills({ activeCategory, setActiveCategory }) {
       left:  bRect.left - wRect.left,
       width: bRect.width,
     });
-  }, [activeCategory]);
+  }, [activeCategory, isWomenSectionLocked]);
+
+  const handleTabClick = (catId) => {
+    if (catId === 'fashion' && isWomenSectionLocked) {
+      if (onLockedClick) onLockedClick();
+      return;
+    }
+    setActiveCategory(catId);
+  };
 
   return (
     <div ref={containerRef} className="sh-switcher">
       {/* The white sliding pill */}
       <div className="sh-switcher-slider" style={{ left: slider.left, width: slider.width }} />
 
-      {CATS.map((cat, i) => (
-        <button
-          key={cat.id}
-          ref={btnRefs[i]}
-          className={`sh-switcher-btn${activeCategory === cat.id ? ' active' : ''}`}
-          onClick={() => setActiveCategory(cat.id)}>
-          <span className="sh-switcher-emoji">{cat.emoji}</span>
-          <span className="sh-switcher-label">{cat.label}</span>
-        </button>
-      ))}
+      {CATS.map((cat, i) => {
+        const IconComp = cat.icon;
+        const isLocked = cat.id === 'fashion' && isWomenSectionLocked;
+        const isActive = activeCategory === cat.id;
+
+        return (
+          <button
+            key={cat.id}
+            ref={btnRefs[i]}
+            type="button"
+            className={`sh-switcher-btn${isActive ? ' active' : ''}${isLocked ? ' sh-switcher-btn-locked' : ''}`}
+            onClick={() => handleTabClick(cat.id)}
+            title={isLocked ? "Women's Fashion (Chained & Locked - Coming Soon)" : cat.label}
+            aria-label={isLocked ? "Women's Fashion - Coming Soon" : cat.label}
+          >
+            {isLocked ? (
+              <img
+                src="/chained_womens_fashion_pill.png"
+                alt="Women's Fashion (Chained & Locked)"
+                className="sh-chained-pill-img"
+              />
+            ) : (
+              <>
+                <span className="sh-switcher-icon-wrap">
+                  <IconComp
+                    size={20}
+                    color={isActive ? (cat.id === 'tailoring' ? '#0284C7' : '#DB2777') : (cat.id === 'tailoring' ? '#38BDF8' : '#F472B6')}
+                  />
+                </span>
+                <span className="sh-switcher-label">{cat.label}</span>
+              </>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -61,11 +96,12 @@ export default function Header() {
   const isHome    = location.pathname === '/';
   const isAdmin   = location.pathname.startsWith('/admin');
 
-  const { activeCategory, setActiveCategory, getCartCount, user, setUser, cmsData, cmsDraft } = useApp();
+  const { activeCategory, setActiveCategory, isWomenSectionLocked, getCartCount, user, setUser, cmsData, cmsDraft } = useApp();
   const activeCms = cmsDraft || cmsData;
-  const [q,        setQ]        = useState('');
-  const [dropdown, setDropdown] = useState(false);
-  const [drawer,   setDrawer]   = useState(false);
+  const [q,              setQ]              = useState('');
+  const [dropdown,       setDropdown]       = useState(false);
+  const [drawer,         setDrawer]         = useState(false);
+  const [showComingSoon, setShowComingSoon] = useState(false);
   const dropRef = useRef(null);
 
   useEffect(() => {
@@ -181,7 +217,7 @@ export default function Header() {
               <div className="sh-search-wrap">
                 <Search size={17} color="#64748B" />
                 <input value={q} onChange={e => setQ(e.target.value)}
-                  placeholder={activeCategory === 'tailoring' ? 'Search tailoring tools…' : 'Search fashion…'} />
+                  placeholder={activeCategory === 'tailoring' ? 'Search tailoring tools…' : "Search women's fashion…"} />
               </div>
             </form>
 
@@ -286,10 +322,12 @@ export default function Header() {
         {isHome && (
           <div className="sh-switcher-wrap"
             style={{ background: activeCategory === 'tailoring' ? TAILORING_BG : FASHION_BG }}>
-            <div className="sh-container" style={{ display:'flex', justifyContent:'center', paddingBottom:'28px' }}>
+            <div className="sh-container sh-switcher-container">
               <SwitcherPills
                 activeCategory={activeCategory}
                 setActiveCategory={setActiveCategory}
+                isWomenSectionLocked={isWomenSectionLocked}
+                onLockedClick={() => setShowComingSoon(true)}
               />
             </div>
           </div>
@@ -554,6 +592,16 @@ export default function Header() {
           to   { transform: translateX(0);    opacity: 1; }
         }
       `}</style>
+
+      {/* ══ Coming Soon Modal for Locked Women Section ══════════════════════ */}
+      <ComingSoonModal
+        isOpen={showComingSoon}
+        onClose={() => setShowComingSoon(false)}
+        onExploreTailoring={() => {
+          setActiveCategory('tailoring');
+          setShowComingSoon(false);
+        }}
+      />
     </>
   );
 }
