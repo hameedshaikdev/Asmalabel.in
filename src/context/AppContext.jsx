@@ -198,7 +198,7 @@ export function AppProvider({ children }) {
       footer: { ...DEFAULT_CMS_DATA.footer, ...(data.footer || {}) },
       seo: seoData,
       mediaLibrary: mediaLib,
-      isWomenLocked: typeof data.isWomenLocked === 'boolean' ? data.isWomenLocked : true
+      isWomenLocked: typeof data.isWomenLocked === 'boolean' ? data.isWomenLocked : false
     };
 
     return updated;
@@ -224,15 +224,15 @@ export function AppProvider({ children }) {
   // ── Women Section Lock State ──
   const [isWomenSectionLocked, setIsWomenSectionLockedState] = useState(() => {
     try {
-      const stored = localStorage.getItem('asmalabel_women_locked');
-      if (stored !== null) return stored === 'true';
       const cms = localStorage.getItem('ashub_homepage_cms');
       if (cms) {
         const parsed = JSON.parse(cms);
         if (typeof parsed.isWomenLocked === 'boolean') return parsed.isWomenLocked;
       }
+      const stored = localStorage.getItem('asmalabel_women_locked');
+      if (stored !== null) return stored === 'true';
     } catch { /* ignore */ }
-    return true;
+    return false;
   });
 
   const setWomenSectionLocked = async (locked) => {
@@ -291,19 +291,50 @@ export function AppProvider({ children }) {
           const clean = getSanitizedCms(data.content);
           setCmsData(clean);
           localStorage.setItem('ashub_homepage_cms', JSON.stringify(clean));
-          const localStored = localStorage.getItem('asmalabel_women_locked');
-          const isLocked = localStored !== null ? localStored === 'true' : true;
-          setIsWomenSectionLockedState(isLocked);
-          if (localStored === null) {
-            localStorage.setItem('asmalabel_women_locked', 'true');
-          }
-          if (isLocked && activeCategory === 'fashion') {
+
+          // Published Supabase CMS is the definitive single source of truth across all devices
+          const remoteLocked = typeof clean.isWomenLocked === 'boolean' ? clean.isWomenLocked : false;
+          setIsWomenSectionLockedState(remoteLocked);
+          try {
+            localStorage.setItem('asmalabel_women_locked', remoteLocked ? 'true' : 'false');
+          } catch {}
+
+          if (remoteLocked && activeCategory === 'fashion') {
             setActiveCategory('tailoring');
           }
         }
       } catch { /* use local */ }
     }
     loadRemoteCms();
+  }, [activeCategory]);
+
+  // Realtime Supabase subscription for instant cross-device updates (e.g. Admin -> Mobile storefront)
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:homepage_cms')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'homepage_cms' }, (payload) => {
+        if (payload?.new?.id === 'published' && payload.new?.content) {
+          const clean = getSanitizedCms(payload.new.content);
+          setCmsData(clean);
+          try {
+            localStorage.setItem('ashub_homepage_cms', JSON.stringify(clean));
+          } catch {}
+          if (typeof clean.isWomenLocked === 'boolean') {
+            setIsWomenSectionLockedState(clean.isWomenLocked);
+            try {
+              localStorage.setItem('asmalabel_women_locked', clean.isWomenLocked ? 'true' : 'false');
+            } catch {}
+            if (clean.isWomenLocked && activeCategory === 'fashion') {
+              setActiveCategory('tailoring');
+            }
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [activeCategory]);
 
   const updateCmsDraft = (updater) => {
