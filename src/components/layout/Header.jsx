@@ -35,9 +35,13 @@ function SwitcherPills({ activeCategory, setActiveCategory, isWomenSectionLocked
       const bRect = btn.getBoundingClientRect();
       const cLeft = wrap.clientLeft || 0;
       if (bRect.width > 0) {
-        setSlider({
-          left:  bRect.left - wRect.left - cLeft,
-          width: bRect.width,
+        const nextLeft = Math.round((bRect.left - wRect.left - cLeft) * 10) / 10;
+        const nextWidth = Math.round(bRect.width * 10) / 10;
+        setSlider(prev => {
+          if (Math.abs(prev.left - nextLeft) < 0.5 && Math.abs(prev.width - nextWidth) < 0.5) {
+            return prev;
+          }
+          return { left: nextLeft, width: nextWidth };
         });
       }
     };
@@ -59,10 +63,7 @@ function SwitcherPills({ activeCategory, setActiveCategory, isWomenSectionLocked
       document.fonts.ready.then(updateSlider);
     }
 
-    const t = setTimeout(updateSlider, 200);
-
     return () => {
-      clearTimeout(t);
       if (ro) ro.disconnect();
       window.removeEventListener('resize', updateSlider);
     };

@@ -270,9 +270,6 @@ export function AppProvider({ children }) {
     const handleLockEvent = (e) => {
       const locked = e.detail?.locked ?? (localStorage.getItem('asmalabel_women_locked') === 'true');
       setIsWomenSectionLockedState(locked);
-      if (locked && activeCategory === 'fashion') {
-        setActiveCategory('tailoring');
-      }
     };
     window.addEventListener('women_lock_changed', handleLockEvent);
     window.addEventListener('storage', handleLockEvent);
@@ -280,9 +277,16 @@ export function AppProvider({ children }) {
       window.removeEventListener('women_lock_changed', handleLockEvent);
       window.removeEventListener('storage', handleLockEvent);
     };
-  }, [activeCategory]);
+  }, []);
 
-  // Sync CMS from Supabase if available
+  // Auto-redirect to tailoring if women section is locked
+  useEffect(() => {
+    if (isWomenSectionLocked && activeCategory === 'fashion') {
+      setActiveCategory('tailoring');
+    }
+  }, [isWomenSectionLocked, activeCategory]);
+
+  // Sync CMS from Supabase if available (mount only)
   useEffect(() => {
     async function loadRemoteCms() {
       try {
@@ -298,15 +302,11 @@ export function AppProvider({ children }) {
           try {
             localStorage.setItem('asmalabel_women_locked', remoteLocked ? 'true' : 'false');
           } catch {}
-
-          if (remoteLocked && activeCategory === 'fashion') {
-            setActiveCategory('tailoring');
-          }
         }
       } catch { /* use local */ }
     }
     loadRemoteCms();
-  }, [activeCategory]);
+  }, []);
 
   // Realtime Supabase subscription for instant cross-device updates (e.g. Admin -> Mobile storefront)
   useEffect(() => {
@@ -324,9 +324,6 @@ export function AppProvider({ children }) {
             try {
               localStorage.setItem('asmalabel_women_locked', clean.isWomenLocked ? 'true' : 'false');
             } catch {}
-            if (clean.isWomenLocked && activeCategory === 'fashion') {
-              setActiveCategory('tailoring');
-            }
           }
         }
       })
@@ -335,7 +332,7 @@ export function AppProvider({ children }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeCategory]);
+  }, []);
 
   const updateCmsDraft = (updater) => {
     setCmsDraft(prev => {

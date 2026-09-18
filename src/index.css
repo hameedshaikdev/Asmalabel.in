@@ -510,6 +510,9 @@ div[style*="overflow"]::-webkit-scrollbar {
 .sh-category-icon {
   display: block;
 }
+.sh-icon-sewing-machine {
+  transition: filter 0.25s ease;
+}
 .sh-switcher-btn:not(.active) .sh-icon-sewing-machine {
   filter: brightness(0) invert(1);
 }

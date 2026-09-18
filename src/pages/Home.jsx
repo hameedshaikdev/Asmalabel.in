@@ -28,7 +28,7 @@ const CONTENT = {
     sub: 'Premium tools engineered for craftsmen who demand the best. Every stitch, perfected.',
     grad: 'linear-gradient(180deg, #9C80AA 0%, #D1B6D5 18%, #D1B6D5 100%)',
     accentColor: '#6B4F8A',
-    illustration: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1000&auto=format&fit=crop&q=80',
+    illustration: '/images/tailoring_hero.jpg',
     illustrationAlt: 'Luxury professional tailoring tools atelier',
     collections: [
       { id:'machines',     label:'Tailoring Kit',     emoji:'🧰', desc:'Complete atelier set', image: '/images/collections/sewing_machines.png' },
@@ -1003,7 +1003,7 @@ export default function Home() {
         {/* ── Tailoring: 100% full-bleed hero image (desktop) ── */}
         {!isDark && (
           <div className="sh-desktop-bg" style={{position:'absolute',inset:0,zIndex:0,overflow:'hidden',pointerEvents:'none'}}>
-            <img src={`${c.illustration}?v=2560`} alt={c.illustrationAlt}
+            <img src={c.illustration} alt={c.illustrationAlt}
               style={{width:'100%',height:'100%',objectFit:'cover',
                 objectPosition:'right center',display:'block',userSelect:'none',
                 imageRendering:'-webkit-optimize-contrast'}}
