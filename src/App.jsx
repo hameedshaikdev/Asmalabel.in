@@ -11,20 +11,43 @@ import BottomNav from './components/layout/BottomNav';
 // ── Direct Import for critical entry page (Instant 0ms homepage load) ──
 import Home from './pages/Home';
 
-// ── Dynamic Code-Split Lazy Imports (Cuts initial bundle by > 85%) ──
-const ProductDetail  = lazy(() => import('./pages/ProductDetail'));
-const Cart           = lazy(() => import('./pages/Cart'));
-const Wishlist       = lazy(() => import('./pages/Wishlist'));
-const Checkout       = lazy(() => import('./pages/Checkout'));
-const Login          = lazy(() => import('./pages/Login'));
-const Signup         = lazy(() => import('./pages/Signup'));
-const Profile        = lazy(() => import('./pages/Profile'));
-const Orders         = lazy(() => import('./pages/Orders'));
-const AdminPanel     = lazy(() => import('./pages/AdminPanel'));
-const About          = lazy(() => import('./pages/About'));
-const ResetPassword  = lazy(() => import('./pages/ResetPassword'));
-const AuthCallback   = lazy(() => import('./pages/AuthCallback'));
-const OrderStatus    = lazy(() => import('./pages/OrderStatus'));
+// ── Resilient Lazy Imports with Auto-Refresh on Deployment Updates ──
+function lazyRetry(importFn) {
+  return lazy(async () => {
+    try {
+      return await importFn();
+    } catch (error) {
+      const isDynamicImportError =
+        error?.message?.includes('Failed to fetch dynamically imported module') ||
+        error?.message?.includes('Importing a module script failed') ||
+        error?.message?.includes('error loading dynamically imported module') ||
+        error?.name === 'ChunkLoadError';
+
+      const lastReload = sessionStorage.getItem('last_chunk_reload');
+      const now = Date.now();
+      if (isDynamicImportError && (!lastReload || now - Number(lastReload) > 10000)) {
+        sessionStorage.setItem('last_chunk_reload', String(now));
+        window.location.reload();
+        return new Promise(() => {}); // prevent throwing while reload is executing
+      }
+      throw error;
+    }
+  });
+}
+
+const ProductDetail  = lazyRetry(() => import('./pages/ProductDetail'));
+const Cart           = lazyRetry(() => import('./pages/Cart'));
+const Wishlist       = lazyRetry(() => import('./pages/Wishlist'));
+const Checkout       = lazyRetry(() => import('./pages/Checkout'));
+const Login          = lazyRetry(() => import('./pages/Login'));
+const Signup         = lazyRetry(() => import('./pages/Signup'));
+const Profile        = lazyRetry(() => import('./pages/Profile'));
+const Orders         = lazyRetry(() => import('./pages/Orders'));
+const AdminPanel     = lazyRetry(() => import('./pages/AdminPanel'));
+const About          = lazyRetry(() => import('./pages/About'));
+const ResetPassword  = lazyRetry(() => import('./pages/ResetPassword'));
+const AuthCallback   = lazyRetry(() => import('./pages/AuthCallback'));
+const OrderStatus    = lazyRetry(() => import('./pages/OrderStatus'));
 
 function ScrollToTop() {
   const { pathname } = useLocation();

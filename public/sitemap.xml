@@ -73,12 +73,6 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://asmalabel.in/product/7f5b5909-9032-4a21-8d41-913dc341ce73</loc>
-    <lastmod>2026-07-26</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
     <loc>https://asmalabel.in/product/2081e49b-fafe-48ea-b453-d164be58dfcc</loc>
     <lastmod>2026-07-26</lastmod>
     <changefreq>weekly</changefreq>
@@ -411,6 +405,12 @@
   <url>
     <loc>https://asmalabel.in/product/22a7c2af-c1fa-414d-b356-514aa19f15e5</loc>
     <lastmod>2026-08-31</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://asmalabel.in/product/7f5b5909-9032-4a21-8d41-913dc341ce73</loc>
+    <lastmod>2026-07-26</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
