@@ -623,15 +623,15 @@ div[style*="overflow"]::-webkit-scrollbar {
     border-radius: 9999px !important;
   }
   .sh-switcher-btn {
-    padding: 6px 10px !important;
-    font-size: 13px !important;
+    padding: 6px 12px !important;
+    font-size: 12.5px !important;
     height: 36px !important;
     min-height: 36px !important;
     max-height: 36px !important;
-    width: 145px !important;
-    min-width: 145px !important;
-    max-width: 145px !important;
-    gap: 5px !important;
+    width: 154px !important;
+    min-width: 154px !important;
+    max-width: 154px !important;
+    gap: 6px !important;
     box-sizing: border-box !important;
     border-radius: 9999px !important;
     white-space: nowrap !important;
@@ -643,9 +643,9 @@ div[style*="overflow"]::-webkit-scrollbar {
     height: 36px !important;
     min-height: 36px !important;
     max-height: 36px !important;
-    width: 155px !important;
-    min-width: 155px !important;
-    max-width: 155px !important;
+    width: 154px !important;
+    min-width: 154px !important;
+    max-width: 154px !important;
     padding: 0 !important;
     position: relative !important;
     overflow: visible !important;
@@ -656,8 +656,8 @@ div[style*="overflow"]::-webkit-scrollbar {
     position: absolute !important;
     top: -7px !important;
     left: 0 !important;
-    width: 155px !important;
-    height: 55px !important;
+    width: 154px !important;
+    height: 50px !important;
     max-width: none !important;
     margin: 0 !important;
     pointer-events: none !important;

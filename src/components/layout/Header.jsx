@@ -33,9 +33,10 @@ function SwitcherPills({ activeCategory, setActiveCategory, isWomenSectionLocked
       if (!btn || !wrap) return;
       const wRect = wrap.getBoundingClientRect();
       const bRect = btn.getBoundingClientRect();
+      const cLeft = wrap.clientLeft || 0;
       if (bRect.width > 0) {
         setSlider({
-          left:  bRect.left - wRect.left,
+          left:  bRect.left - wRect.left - cLeft,
           width: bRect.width,
         });
       }
