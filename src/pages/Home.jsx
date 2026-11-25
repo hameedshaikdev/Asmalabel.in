@@ -1355,15 +1355,111 @@ export default function Home() {
                     </div>
                   </>
                 ) : (
-                  /* Mobile Tailoring Photo Card */
-                  <div className="sh-mobile-only" style={{
-                    width: '100%', marginTop: '20px', borderRadius: '24px', overflow: 'hidden',
-                    boxShadow: '0 16px 40px -8px rgba(107,79,138,0.22)', border: '1.5px solid rgba(255,255,255,0.6)'
-                  }}>
-                    <img src={c.illustration} alt={c.illustrationAlt}
-                      style={{ width: '100%', height: 'auto', display: 'block', userSelect: 'none', maxHeight: '320px', objectFit: 'cover' }}
+                  /* Mobile / Tablet Tailoring Editorial Showcase Card */
+                  <div
+                    className="sh-mobile-only"
+                    onClick={() => scrollTo(productsRef)}
+                    style={{
+                      position: 'relative',
+                      width: '100%',
+                      height: 'clamp(220px, 50vw, 290px)',
+                      marginTop: '20px',
+                      borderRadius: '24px',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      boxShadow: '0 18px 42px -10px rgba(74, 53, 99, 0.28)',
+                      border: '1.5px solid rgba(255,255,255,0.75)',
+                      background: '#C8AED0'
+                    }}
+                  >
+                    <img
+                      src={c.illustration}
+                      alt={c.illustrationAlt}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'block',
+                        userSelect: 'none',
+                        objectFit: 'cover',
+                        objectPosition: '82% center',
+                        transform: 'scale(1.06)'
+                      }}
                       onError={e => { e.target.src = 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1000&auto=format&fit=crop&q=80'; }}
                     />
+                    {/* Editorial Left Gradient Overlay */}
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'linear-gradient(95deg, rgba(42, 28, 60, 0.84) 0%, rgba(74, 53, 99, 0.56) 44%, rgba(74, 53, 99, 0.08) 78%, transparent 100%)',
+                      pointerEvents: 'none'
+                    }} />
+                    {/* Editorial Overlay Content filling the left space */}
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      padding: 'clamp(16px, 4vw, 26px)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      zIndex: 2
+                    }}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 12px',
+                        borderRadius: '99px',
+                        background: 'rgba(255, 255, 255, 0.16)',
+                        backdropFilter: 'blur(10px)',
+                        WebkitBackdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.28)',
+                        color: '#FFFFFF',
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        letterSpacing: '1.2px',
+                        textTransform: 'uppercase'
+                      }}>
+                        <Scissors size={11} /> Atelier Essentials
+                      </span>
+
+                      <div style={{ maxWidth: '58%' }}>
+                        <p style={{
+                          margin: '0 0 4px 0',
+                          fontSize: 'clamp(18px, 4.2vw, 24px)',
+                          fontWeight: 800,
+                          lineHeight: 1.15,
+                          color: '#FFFFFF',
+                          fontFamily: "'Playfair Display', Georgia, serif",
+                          textShadow: '0 2px 10px rgba(0,0,0,0.3)'
+                        }}>
+                          Crafted for<br />Every Stitch
+                        </p>
+                        <p style={{
+                          margin: '0 0 12px 0',
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          color: 'rgba(255,255,255,0.86)',
+                          lineHeight: 1.4
+                        }}>
+                          Shears, needles, threads &amp; pro kits
+                        </p>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '7px 14px',
+                          borderRadius: '99px',
+                          background: '#FFFFFF',
+                          color: '#252329',
+                          fontSize: '11.5px',
+                          fontWeight: 800,
+                          boxShadow: '0 4px 14px rgba(0,0,0,0.18)'
+                        }}>
+                          Explore Tools <ArrowRight size={13} />
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 )}
                 </motion.div>
@@ -1402,8 +1498,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Scroll hint */}
-        <motion.div animate={{y:[0,7,0]}} transition={{duration:2,repeat:Infinity}}
+        {/* Scroll hint (Desktop only so it never overlaps mobile card) */}
+        <motion.div className="sh-desktop-only" animate={{y:[0,7,0]}} transition={{duration:2,repeat:Infinity}}
           onClick={() => scrollTo(filterRef)}
           style={{position:'absolute',bottom:'64px',left:'50%',transform:'translateX(-50%)',
             cursor:'pointer',zIndex:1,opacity:0.6,
