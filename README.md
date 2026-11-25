@@ -69,7 +69,7 @@ Built entirely as a **React SPA** with **Supabase** as the backend-as-a-service 
 | **Backend / DB** | Supabase (PostgreSQL + RLS) |
 | **Auth** | Supabase Auth (Email/Password + Google OAuth) |
 | **File Storage** | Supabase Storage |
-| **Payments** | Razorpay Payment Gateway |
+| **Payments** | Manual UPI (PhonePe, GPay, Paytm, CRED) + COD |
 | **Analytics** | Vercel Analytics |
 | **Deployment** | Vercel (Edge CDN) |
 | **Linting** | oxlint |
@@ -130,7 +130,7 @@ Asmalabel.in/
 │   │   ├── ProductDetail.jsx        # PDP with variants, images, reviews
 │   │   ├── Cart.jsx                 # Cart with coupon engine
 │   │   ├── Wishlist.jsx
-│   │   ├── Checkout.jsx             # Multi-step checkout + Razorpay
+│   │   ├── Checkout.jsx             # Multi-step checkout + UPI/COD payments
 │   │   ├── Orders.jsx               # Order history
 │   │   ├── OrderStatus.jsx          # Real-time order tracking page
 │   │   ├── Profile.jsx
@@ -256,13 +256,19 @@ Asmalabel.in/
 ### 💳 Checkout & Payments
 
 - **Multi-step checkout**:
-  1. Delivery address form with validation
+  1. Delivery address form with full validation
   2. Order summary review
   3. Payment
-- **Razorpay integration** — secure UPI, card, net banking, wallets
-- **UPI Deep-links** — PhonePe, GPay, Paytm, CRED one-tap pay icons
-- **Order confirmation** — instant feedback post-payment with order ID
-- **WhatsApp notification** — auto-sends order summary to admin on new order
+- **UPI Direct Payment** — no third-party gateway, pays straight to merchant UPI ID
+  - One-tap deep-links for **PhonePe**, **Google Pay**, **Paytm**, **CRED**
+  - UPI QR Code display for in-app camera scan
+  - Paste-ready UPI ID copy button
+  - Customer types their own UPI VPA to trigger auto-routed deep-link
+- **Payment screenshot upload** — customer uploads payment proof after UPI transfer; stored in Supabase Storage (`payment-screenshots` bucket); order moves to `payment_submitted` status
+- **Cash on Delivery (COD)** — available payment option
+- **Admin payment verification** — admin reviews screenshot and marks order `payment_verified` or rejects with a reason
+- **WhatsApp notification** — auto-sends full order summary to admin WhatsApp on every new order
+- **Order confirmation page** — instant feedback with shareable order status link
 
 ---
 
@@ -280,14 +286,20 @@ Asmalabel.in/
 ### 📬 Order Management
 
 - **Orders page** — full order history with status badges
-- **Order Status page** (`/order-status/:id`) — shareable per-order tracking link
-  - Status timeline: Confirmed → Processing → Shipped → Delivered
-  - Shipping details & item breakdown
+- **Order Status page** (`/order-status/:id`) — shareable per-order tracking link with **real-time live updates**
+  - **Supabase Realtime** subscription (`postgres_changes` on the `orders` table) — status updates from admin appear on the customer's screen **instantly** without refresh
+  - 30-second polling fallback for `payment_submitted` orders as a safety net
+  - Manual Refresh button for on-demand sync
+  - Status timeline: Pending Payment → Payment Submitted → Payment Verified → Confirmed → Preparing → Shipped → Delivered
+  - Full shipping address, payment method, item breakdown with variant badges (size, colour)
+  - "Buy Again" button — re-adds all items to cart in one tap
 - **Admin order management**:
   - View all orders with real-time Supabase subscription
   - Filter by status, search by ID / customer name
   - Update order status (one-click)
   - Add tracking number & shipping notes
+  - View & verify payment screenshot uploaded by customer
+  - Reject payment with reason (shown to customer on status page)
   - Contact customer via WhatsApp directly from admin
   - Export orders to CSV
 
@@ -410,7 +422,7 @@ social_links    -- id, platform, url, icon, active, display_order
 - Node.js ≥ 18
 - npm ≥ 9
 - A [Supabase](https://supabase.com) project
-- A [Razorpay](https://razorpay.com) account (test keys for development)
+- A UPI-enabled merchant account (PhonePe/GPay/Paytm/CRED)
 
 ### 1. Clone the repository
 
@@ -429,7 +441,7 @@ npm install
 
 ```bash
 cp .env.example .env
-# Edit .env with your Supabase and Razorpay keys
+# Edit .env with your Supabase credentials
 ```
 
 ### 4. Set up the database
@@ -471,14 +483,9 @@ Create a `.env` file in the project root:
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 
-# Razorpay (required for payments)
-VITE_RAZORPAY_KEY_ID=rzp_test_your-key-id
-
-# Optional
+# Optional: Google Analytics
 VITE_GA_TRACKING_ID=G-XXXXXXXXXX
 ```
-
-> ⚠️ All variables **must** start with `VITE_` to be exposed to the browser bundle.
 
 ---
 
