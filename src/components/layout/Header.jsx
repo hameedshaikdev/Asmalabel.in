@@ -98,18 +98,11 @@ function SwitcherPills({ activeCategory, setActiveCategory, isWomenSectionLocked
             aria-label={isLocked ? "Women's Fashion - Coming Soon" : cat.label}
           >
             {isLocked ? (
-              <>
-                <span className="sh-switcher-icon-wrap">
-                  <IconComp size={20} color="#DB2777" />
-                </span>
-                <span className="sh-switcher-label">{cat.label}</span>
-                <img
-                  src="/chains_and_padlock_overlay.png"
-                  alt=""
-                  aria-hidden="true"
-                  className="sh-chained-pill-img"
-                />
-              </>
+              <img
+                src="/chained_womens_fashion_pill.png"
+                alt="Women's Fashion (Chained & Locked)"
+                className="sh-chained-pill-img"
+              />
             ) : (
               <>
                 <span className="sh-switcher-icon-wrap">
