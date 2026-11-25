@@ -522,33 +522,41 @@ div[style*="overflow"]::-webkit-scrollbar {
 
 /* ── Realistic 3D Chained & Locked Tab Styling ── */
 .sh-switcher-btn.sh-switcher-btn-locked {
-  padding: 0 !important;
-  background: transparent !important;
+  padding: 10px 22px !important;
+  background: #FFFFFF !important;
+  color: #1E1926 !important;
   border: none !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18), 0 0 10px rgba(255, 255, 255, 0.5) !important;
   height: 44px !important;
   width: 180px !important;
   min-width: 180px !important;
   max-width: 180px !important;
-  display: block !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
   position: relative !important;
   cursor: pointer;
   overflow: visible !important;
   z-index: 2;
   flex-shrink: 0 !important;
   border-radius: var(--r-pill) !important;
+  opacity: 1 !important;
 }
 
 .sh-chained-pill-img {
   position: absolute;
-  top: -8px;
-  left: 0;
-  width: 180px !important;
-  height: 64px !important;
+  top: -5px;
+  left: -4px;
+  width: calc(100% + 8px) !important;
+  height: calc(100% + 12px) !important;
   max-width: none !important;
+  object-fit: fill;
   display: block;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
   pointer-events: none;
   user-select: none;
+  z-index: 3;
 }
 
 .sh-switcher-btn.sh-switcher-btn-locked:hover .sh-chained-pill-img {
@@ -649,18 +657,21 @@ div[style*="overflow"]::-webkit-scrollbar {
     width: 154px !important;
     min-width: 154px !important;
     max-width: 154px !important;
-    padding: 0 !important;
+    padding: 6px 12px !important;
+    gap: 6px !important;
     position: relative !important;
     overflow: visible !important;
-    display: block !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     flex-shrink: 0 !important;
   }
   .sh-chained-pill-img {
     position: absolute !important;
-    top: -7px !important;
-    left: 0 !important;
-    width: 154px !important;
-    height: 50px !important;
+    top: -4px !important;
+    left: -3px !important;
+    width: calc(100% + 6px) !important;
+    height: calc(100% + 10px) !important;
     max-width: none !important;
     margin: 0 !important;
     pointer-events: none !important;
@@ -3610,18 +3621,19 @@ img, video, svg {
     max-width: 130px !important;
   }
   .sh-switcher-btn.sh-switcher-btn-locked {
+    padding: 5px 6px !important;
     width: 130px !important;
     min-width: 130px !important;
     max-width: 130px !important;
-    height: 34px !important;
-    min-height: 34px !important;
-    max-height: 34px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 36px !important;
   }
   .sh-chained-pill-img {
-    top: -6px !important;
-    left: 0 !important;
-    width: 130px !important;
-    height: 46px !important;
+    top: -4px !important;
+    left: -3px !important;
+    width: calc(100% + 6px) !important;
+    height: calc(100% + 10px) !important;
   }
   .sh-switcher-slider {
     top: 4px !important;
