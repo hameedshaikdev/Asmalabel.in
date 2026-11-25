@@ -53,7 +53,18 @@
 | 🧵 **Tailoring Tools** | Scissors, threads, needles, presser feet, measuring tools, tailoring kits & more |
 | 👗 **Women's Fashion** | Curated apparel & fashion accessories |
 
-Built entirely as a **React SPA** with **Supabase** as the backend-as-a-service (Postgres DB + Auth + Storage), deployed on **Vercel** with zero cold-start latency.
+Built entirely as a **React SPA** with **Supabase** as the backend-as-a-service (Postgres DB + Auth + Storage), deployed on **Vercel** with a custom domain and zero cold-start latency.
+
+### 📌 Project Overview
+
+| Detail | Info |
+|--------|------|
+| **Project Type** | Freelance / Production Client E-Commerce |
+| **Custom Domain** | [asmalabel.in](https://asmalabel.in) |
+| **Hosting & CDN** | Vercel (Automatic CI/CD from `main`) |
+| **Database & Backend** | Supabase (PostgreSQL + RLS + Auth + Storage) |
+| **Key Client Integrations** | WhatsApp Business order alerts & support, Direct UPI + screenshot verification, COD |
+| **Developer** | **Abdul Hameed Shaik** — Nellore, Andhra Pradesh |
 
 ---
 
@@ -71,7 +82,8 @@ Built entirely as a **React SPA** with **Supabase** as the backend-as-a-service 
 | **File Storage** | Supabase Storage |
 | **Payments** | Manual UPI (PhonePe, GPay, Paytm, CRED) + COD |
 | **Analytics** | Vercel Analytics |
-| **Deployment** | Vercel (Edge CDN) |
+| **Hosting & Deployment** | Vercel (Edge CDN) |
+| **Custom Domain** | `asmalabel.in` |
 | **Linting** | oxlint |
 
 ---
@@ -545,6 +557,6 @@ This is a private commercial project. If you have access and want to contribute:
 
 <div align="center">
 
-Made with ❤️ by **[Hameed Shaik](https://github.com/hameedshaikdev)** · © 2025 Asmalabel
+Made with ❤️ by **[Abdul Hameed Shaik](https://github.com/hameedshaikdev)** (CSE'27 · SVCN · Nellore, Andhra Pradesh) · © 2025 Asmalabel
 
 </div>
