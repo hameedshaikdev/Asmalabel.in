@@ -59,12 +59,10 @@ Built entirely as a **React SPA** with **Supabase** as the backend-as-a-service 
 
 | Detail | Info |
 |--------|------|
-| **Project Type** | Freelance / Production Client E-Commerce |
 | **Custom Domain** | [asmalabel.in](https://asmalabel.in) |
 | **Hosting & CDN** | Vercel (Automatic CI/CD from `main`) |
 | **Database & Backend** | Supabase (PostgreSQL + RLS + Auth + Storage) |
 | **Key Client Integrations** | WhatsApp Business order alerts & support, Direct UPI + screenshot verification, COD |
-| **Developer** | **Abdul Hameed Shaik** — Nellore, Andhra Pradesh |
 
 ---
 
@@ -557,6 +555,6 @@ This is a private commercial project. If you have access and want to contribute:
 
 <div align="center">
 
-Made with ❤️ by **[Abdul Hameed Shaik](https://github.com/hameedshaikdev)** (CSE'27 · SVCN · Nellore, Andhra Pradesh) · © 2025 Asmalabel
+© 2025 Asmalabel · [asmalabel.in](https://asmalabel.in)
 
 </div>
