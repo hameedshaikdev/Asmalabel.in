@@ -1173,12 +1173,15 @@ export default function Home() {
                       overflow: 'hidden',
                       marginTop: '16px',
                       position: 'relative',
+                      justifyContent: isMobileMarqueeActive ? 'flex-start' : 'center',
                     }}>
                       <div style={{
                         display: 'flex',
-                        width: 'max-content',
+                        flexShrink: 0,
+                        width: isMobileMarqueeActive ? 'max-content' : '100%',
+                        justifyContent: isMobileMarqueeActive ? 'flex-start' : 'center',
                         transform: 'translate3d(0,0,0)',
-                        animation: isMobileMarqueeActive ? 'mobileCollageMarqueeLoop 16s linear infinite' : 'none',
+                        animation: isMobileMarqueeActive ? 'mobileCollageMarqueeLoop 24s linear infinite' : 'none',
                         willChange: isMobileMarqueeActive ? 'transform' : 'auto',
                       }}>
 
@@ -1308,9 +1311,9 @@ export default function Home() {
                           </motion.div>
                         </div>
 
-                        {/* ── COMPLETE COLLAGE COPY B — Mounted adjacent with 0px gap, unmounted/hidden during entrance ── */}
-                        {isMobileMarqueeActive && (
-                          <div style={{
+                        {/* ── COMPLETE COLLAGE COPIES B, C, D — Seamless full-width marquee across all mobile/tablet widths ── */}
+                        {isMobileMarqueeActive && [1, 2, 3].map((copyIdx) => (
+                          <div key={`mc-copy-${copyIdx}`} style={{
                             position: 'relative',
                             width: 'calc(100vw - 32px)',
                             maxWidth: '420px',
@@ -1349,7 +1352,7 @@ export default function Home() {
                               <img src="/images/fashion_photo_6.jpg" alt="Pink Dress" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                             </div>
                           </div>
-                        )}
+                        ))}
 
                       </div>
                     </div>
@@ -1954,6 +1957,7 @@ export default function Home() {
         @media (max-width: 768px) {
           .hero-combined-wrapper { flex-direction: column !important; gap: 24px !important; }
           .hero-content-box { flex: 1 1 100% !important; max-width: 100% !important; text-align: center !important; }
+          .hero-photo-column { width: 100% !important; flex: none !important; }
           .hero-grid { grid-template-columns: 1fr !important; gap: 0 !important; }
           .hero-illustration { display: none !important; }
         }
