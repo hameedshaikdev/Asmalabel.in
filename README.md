@@ -555,6 +555,6 @@ This is a private commercial project. If you have access and want to contribute:
 
 <div align="center">
 
-© 2025 Asmalabel · [asmalabel.in](https://asmalabel.in)
+© 2026 Asmalabel · [asmalabel.in](https://asmalabel.in)
 
 </div>
