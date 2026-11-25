@@ -71,8 +71,8 @@ bower_components
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
-.env.example
+# dotenv environment variables file (keep .env.example tracked)
+# .env.example is intentionally NOT ignored — it's the template for contributors
 
 # OS generated files
 Thumbs.db
