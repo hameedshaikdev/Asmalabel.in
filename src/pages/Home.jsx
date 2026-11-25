@@ -31,13 +31,13 @@ const CONTENT = {
     illustration: '/images/tailoring_hero.jpg',
     illustrationAlt: 'Luxury professional tailoring tools atelier',
     collections: [
-      { id:'machines',     label:'Tailoring Kit',     emoji:'🧰', desc:'Complete atelier set', image: '/images/collections/sewing_machines.png' },
-      { id:'scissors',     label:'Scissors & Blades',  emoji:'✂️', desc:'Precision cut',      image: '/images/collections/scissors.png' },
-      { id:'threads',      label:'Threads & Yarn',    emoji:'🧵', desc:'Premium quality',    image: '/images/collections/threads.png' },
-      { id:'presser_feet', label:'Presser Feet',      emoji:'🦶', desc:'Precision machine feet', image: '/images/collections/all_tools.png' },
-      { id:'needles',      label:'Needles',           emoji:'🪡', desc:'Sharp & durable',    image: '/images/collections/needles.png' },
-      { id:'measuring',    label:'Measuring Tools',   emoji:'📏', desc:'Accurate tools',     image: '/images/collections/measuring.png' },
-      { id:'other_tools',  label:'Other Tools',       emoji:'🛠️', desc:'Crafting essentials', image: '/images/collections/kit_atelier_real.jpg' },
+      { id:'machines',     label:'Tailoring Kit',     emoji:'🧰', desc:'Complete professional atelier set', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200&auto=format&fit=crop&q=85' },
+      { id:'scissors',     label:'Scissors & Blades', emoji:'✂️', desc:'Precision-engineered cutting tools', image: 'https://images.unsplash.com/photo-1609445028040-18cd0ab2b7de?w=1200&auto=format&fit=crop&q=85' },
+      { id:'threads',      label:'Threads & Yarn',    emoji:'🧵', desc:'Premium quality threads & yarn',    image: 'https://images.unsplash.com/photo-1558618047-f4e70e2c8e16?w=1200&auto=format&fit=crop&q=85' },
+      { id:'presser_feet', label:'Presser Feet',      emoji:'🦶', desc:'Precision sewing machine feet',     image: 'https://images.unsplash.com/photo-1612198527565-37679aa77ee7?w=1200&auto=format&fit=crop&q=85' },
+      { id:'needles',      label:'Needles',           emoji:'🪡', desc:'Sharp, durable & long-lasting',     image: 'https://images.unsplash.com/photo-1584464491033-06628f3a6b7b?w=1200&auto=format&fit=crop&q=85' },
+      { id:'measuring',    label:'Measuring Tools',   emoji:'📏', desc:'Accuracy in every measurement',    image: 'https://images.unsplash.com/photo-1562654501-a0ccc0fc3fb1?w=1200&auto=format&fit=crop&q=85' },
+      { id:'other_tools',  label:'Other Tools',       emoji:'🛠️', desc:'Essential crafting accessories',   image: 'https://images.unsplash.com/photo-1452860606245-08befc0ff44b?w=1200&auto=format&fit=crop&q=85' },
     ],
     subs: [
       { id: 'all',          icon: 'Sparkles',          label: 'All' },
@@ -59,10 +59,10 @@ const CONTENT = {
     illustration: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=640&auto=format&fit=crop&q=80',
     illustrationAlt: 'Women fashion',
     collections: [
-      { id:'dresses',     label:'Dresses',          emoji:'👗', desc:'Latest trends'    },
-      { id:'tops',        label:'Tops & Blouses',   emoji:'👚', desc:'Casual & formal' },
-      { id:'ethnic',      label:'Ethnic Wear',      emoji:'🥻', desc:'Traditional beauty'},
-      { id:'accessories', label:'Accessories',      emoji:'👜', desc:'Complete the look'},
+      { id:'dresses',     label:'Dresses',         emoji:'👗', desc:'Latest trends & styles',      image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1200&auto=format&fit=crop&q=85' },
+      { id:'tops',        label:'Tops & Blouses',  emoji:'👚', desc:'Casual & formal wear',         image: 'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=1200&auto=format&fit=crop&q=85' },
+      { id:'ethnic',      label:'Ethnic Wear',     emoji:'🥻', desc:'Traditional Indian beauty',    image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=1200&auto=format&fit=crop&q=85' },
+      { id:'accessories', label:'Accessories',     emoji:'👜', desc:'Complete the perfect look',    image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=1200&auto=format&fit=crop&q=85' },
     ],
     subs: [
       { id: 'all',         icon: 'Sparkles',    label: 'All' },
@@ -548,6 +548,15 @@ const FullWidthCollectionBannerSlider = memo(function FullWidthCollectionBannerS
                   WebkitUserDrag: 'none'
                 }}
               />
+
+              {/* Professional gradient overlay for text legibility */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'linear-gradient(to right, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.28) 55%, rgba(0,0,0,0.04) 100%)',
+                zIndex: 2,
+                pointerEvents: 'none'
+              }} />
 
               {/* Bottom-Left Overlay Text Directly on Image */}
               <div
